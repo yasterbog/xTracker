@@ -54,6 +54,7 @@ struct StatisticsView: View {
             .background(AppTheme.background)
             .navigationTitle("Статистика")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $showCustomPeriodSheet) {
             CustomPeriodSheet(
@@ -129,8 +130,8 @@ struct StatisticsView: View {
             LazyVGrid(columns: Self.twoColumns, spacing: 12) {
                 StatCard(title: "Всего событий", value: "\(calculator.totalEvents)")
                 StatCard(
-                    title: "Дней с последнего события",
-                    value: calculator.daysSinceLastEvent.map { "\($0)" } ?? "—"
+                    title: "С последнего события",
+                    value: calculator.daysSinceLastEvent.map { "\($0) дн." } ?? "—"
                 )
                 StatCard(title: "Максимальный перерыв", value: "\(calculator.maxGapDays) дн.")
                 StatCard(
@@ -199,7 +200,11 @@ struct StatisticsView: View {
                                     .font(AppTheme.captionFont)
                                     .foregroundStyle(AppTheme.primaryText)
 
-                                Spacer(minLength: 4)
+                                Spacer()
+
+                                Text("\(slice.count)")
+                                    .font(.system(size: 13, weight: .bold, design: .default))
+                                    .foregroundStyle(AppTheme.primaryText)
 
                                 Text("\(Int((slice.fraction * 100).rounded()))%")
                                     .font(.system(size: 13, weight: .semibold, design: .default))
@@ -359,9 +364,25 @@ private struct CustomPeriodSheet: View {
 
 // MARK: - Components
 
+private enum StatsCardStyle {
+    static let sectionBackground = AppTheme.cardBackground
+    static let statTileBackground = Color(red: 0.17, green: 0.17, blue: 0.18)
+}
+
 private struct StatsSectionCard<Content: View>: View {
     let title: String
+    var background: Color
     @ViewBuilder let content: Content
+
+    init(
+        title: String,
+        background: Color = StatsCardStyle.sectionBackground,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.background = background
+        self.content = content()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -373,7 +394,7 @@ private struct StatsSectionCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
-                .fill(AppTheme.cardBackground)
+                .fill(background)
         )
     }
 }
@@ -383,36 +404,43 @@ private struct StatCard: View {
     let value: String
     var trailingEmoji: String?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 12, weight: .regular, design: .default))
-                .foregroundStyle(AppTheme.secondaryText)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+    @ViewBuilder
+    private var valueRow: some View {
+        if let trailingEmoji {
+            HStack(alignment: .center, spacing: 0) {
                 Text(value)
-                    .font(.system(size: 28, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
 
-                if let trailingEmoji {
-                    Text(trailingEmoji)
-                        .font(.system(size: 20, weight: .regular, design: .default))
-                }
-
-                Spacer(minLength: 0)
+                Text(trailingEmoji)
+                    .font(.system(size: 14))
+                    .baselineOffset(-2)
+                    .padding(.leading, 4)
             }
-
-            Spacer(minLength: 0)
+        } else {
+            Text(value)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .frame(height: 90)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text(title)
+                .font(.system(size: 13))
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer()
+
+            valueRow
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                .fill(Color.white.opacity(0.06))
+                .fill(StatsCardStyle.statTileBackground)
         )
     }
 }

@@ -41,27 +41,28 @@ struct CalendarView: View {
         calendar.date(byAdding: .month, value: monthOffset, to: anchorMonth) ?? anchorMonth
     }
 
+    private var currentMonthYearString: String {
+        CalendarFormatters.monthYear(from: displayedMonth)
+    }
+
     private static let monthPageRange = Array(-60...60)
 
     var body: some View {
-        VStack(spacing: 0) {
-            Text(userService.calendarName.isEmpty ? SettingsStore.defaultCalendarName : userService.calendarName)
-                .font(.system(size: 34, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.top, 0)
-                .padding(.bottom, 20)
+        NavigationStack {
+            VStack(spacing: 0) {
+                calendarSection
 
-            calendarSection
+                monthlySummarySection
 
-            monthlySummarySection
-
-            eventsSection
-                .padding(.top, 16)
+                eventsSection
+                    .padding(.top, 8)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.background)
+            .navigationTitle(currentMonthYearString)
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.background)
         .sheet(isPresented: $showAddEvent) {
             AddEventView(prefilledDate: selectedDate)
         }
@@ -87,12 +88,9 @@ struct CalendarView: View {
 
     private var calendarSection: some View {
         VStack(spacing: 0) {
-            monthNavigationBar
-                .padding(.horizontal, 12)
-                .padding(.bottom, 16)
-
             weekdayHeader
                 .padding(.horizontal, 6)
+                .padding(.top, 16)
                 .padding(.bottom, 2)
 
             TabView(selection: $monthOffset) {
@@ -107,33 +105,8 @@ struct CalendarView: View {
         }
     }
 
-    private static let calendarGridHeight: CGFloat = 314
-
-    private var monthNavigationBar: some View {
-        HStack {
-            Button { shiftMonth(by: -1) } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .frame(width: 36, height: 36)
-            }
-
-            Spacer()
-
-            Text(CalendarFormatters.monthYear(from: displayedMonth))
-                .font(.system(size: 16, weight: .semibold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-
-            Spacer()
-
-            Button { shiftMonth(by: 1) } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .frame(width: 36, height: 36)
-            }
-        }
-    }
+    // 6 rows × 49pt cells + 5 × 4pt grid spacing
+    private static let calendarGridHeight: CGFloat = 294
 
     private var weekdayHeader: some View {
         LazyVGrid(columns: Self.gridColumns, spacing: 2) {
@@ -190,7 +163,7 @@ struct CalendarView: View {
                 .padding(.bottom, 10)
             }
         }
-        .padding(.top, 8)
+        .padding(.top, 0)
         .id(displayedMonth)
     }
 
@@ -364,10 +337,6 @@ struct CalendarView: View {
         calendar.startOfDay(for: date) > calendar.startOfDay(for: Date())
     }
 
-    private func shiftMonth(by value: Int) {
-        monthOffset += value
-    }
-
     private func deletePendingEvent() {
         guard let event = eventPendingDeletion else { return }
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
@@ -451,7 +420,7 @@ private struct CalendarDayCell: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 5) {
+            VStack(spacing: 3) {
                 ZStack {
                     dayBackground
                     Text("\(calendar.component(.day, from: day))")
@@ -481,7 +450,12 @@ private struct CalendarDayCell: View {
                 .fill(Color.white)
         } else if isToday {
             Circle()
-                .stroke(AppTheme.accent, lineWidth: 1.5)
+                .fill(Color.clear)
+                .overlay(
+                    Circle()
+                        .inset(by: 1)
+                        .stroke(Color(hex: "#FF3B6F"), lineWidth: 2)
+                )
         }
     }
 

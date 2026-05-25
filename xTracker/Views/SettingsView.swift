@@ -8,6 +8,8 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    static let profileAvatarSize: CGFloat = 96
+
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var userService: UserService
@@ -15,10 +17,6 @@ struct SettingsView: View {
     @State private var nameDraft: String = SettingsStore.userName
     @State private var isEditingName = false
     @State private var showProfileEditor = false
-
-    @State private var isEditingCalendarName = false
-    @State private var calendarNameDraft: String = SettingsStore.calendarName
-    @State private var showCalendarNameEditor = false
 
     @State private var showPartnerSheet = false
     @State private var partnerCodeInput = ""
@@ -36,20 +34,21 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    profileHeader
-                    calendarCard
-                    partnerCard
-                    accountCard
-                }
-                .padding(.horizontal, AppTheme.screenHorizontalPadding)
-                .padding(.bottom, 24)
+            VStack(alignment: .leading, spacing: 0) {
+                profileHeader
+                    .padding(.top, 16)
+                partnerCard
+
+                deleteAllDataButton
+                    .padding(.top, 24)
             }
-            .scrollIndicators(.hidden)
+            .padding(.horizontal, AppTheme.screenHorizontalPadding)
+            .padding(.bottom, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(AppTheme.background)
             .navigationTitle("Настройки")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $showPartnerSheet) {
             PartnerConnectSheet(partnerCodeInput: $partnerCodeInput) {
@@ -79,22 +78,7 @@ struct SettingsView: View {
                     saveProfile(name: name, avatarData: avatarData)
                 }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showCalendarNameEditor) {
-            CalendarNameEditSheet(
-                initialName: userService.calendarName.isEmpty ? SettingsStore.defaultCalendarName : userService.calendarName,
-                onSave: { name in
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        calendarNameDraft = name
-                        userService.calendarName = name
-                        SettingsStore.calendarName = name
-                    }
-                    userService.saveCalendarName(name, pairID: authService.pairID)
-                }
-            )
-            .presentationDetents([.height(320), .medium])
+            .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
         .alert("Готово", isPresented: $showPartnerSuccessAlert) {
@@ -128,13 +112,6 @@ struct SettingsView: View {
                 nameDraft = trimmed(newName)
             }
         }
-        .onChange(of: userService.calendarName) { newName in
-            guard !trimmed(newName).isEmpty else { return }
-            SettingsStore.calendarName = trimmed(newName)
-            if !isEditingCalendarName {
-                calendarNameDraft = trimmed(newName)
-            }
-        }
         .onChange(of: userService.ownAvatarBase64) { newValue in
             if newValue != nil {
                 avatarImage = nil
@@ -157,72 +134,55 @@ struct SettingsView: View {
     // MARK: - Sections
 
     private var profileHeader: some View {
-        VStack(spacing: 10) {
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                EditableAvatarView(
-                    image: avatarImage,
-                    avatarBase64: userService.ownAvatarBase64,
-                    avatarURL: userService.ownAvatarURL,
-                    name: userService.ownName.isEmpty ? SettingsStore.defaultUserName : userService.ownName,
-                    size: 88,
-                    isLoading: userService.uploadingAvatar
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(userService.uploadingAvatar)
+        let avatarBase64 = userService.ownAvatarBase64
+        let avatarURL = userService.ownAvatarURL
+        let name = userService.ownName
+        let uploading = userService.uploadingAvatar
+        let displayName = name.isEmpty ? SettingsStore.defaultUserName : name
 
-            Text(userService.ownName.isEmpty ? SettingsStore.defaultUserName : userService.ownName)
-                .font(.system(size: 20, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-                .multilineTextAlignment(.center)
-
-            Button {
-                showProfileEditor = true
-            } label: {
-                Text("Изменить")
-                    .font(.system(size: 14, weight: .regular, design: .default))
-                    .foregroundStyle(AppTheme.accent)
-            }
-            .buttonStyle(.plain)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
-    }
-
-    private var calendarCard: some View {
-        SettingsGroup(title: "КАЛЕНДАРЬ") {
-            Button {
-                showCalendarNameEditor = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 16, weight: .regular, design: .default))
-                        .foregroundStyle(AppTheme.primaryText)
-                        .frame(width: 22)
-
-                    Text("Название календаря")
-                        .font(AppTheme.bodyFont)
-                        .foregroundStyle(AppTheme.primaryText)
-
-                    Spacer(minLength: 8)
-
-                    Text(userService.calendarName.isEmpty ? SettingsStore.defaultCalendarName : userService.calendarName)
-                        .font(AppTheme.bodyFont)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .lineLimit(1)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold, design: .default))
-                        .foregroundStyle(AppTheme.secondaryText)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    EditableAvatarView(
+                        image: avatarImage,
+                        avatarBase64: avatarBase64,
+                        avatarURL: avatarURL,
+                        name: displayName,
+                        size: Self.profileAvatarSize,
+                        isLoading: uploading,
+                        showsCameraOverlay: false
+                    )
                 }
+                .buttonStyle(.plain)
+                .disabled(uploading)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    showProfileEditor = true
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 20, weight: .regular, design: .default))
+                        .foregroundStyle(Color.gray)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+
+            Text(displayName)
+                .font(.system(size: 28, weight: .bold, design: .default))
+                .foregroundStyle(AppTheme.primaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 12)
+
+            Divider()
+                .overlay(AppTheme.separator)
+                .padding(.top, 24)
+                .padding(.bottom, 24)
         }
     }
 
     private var partnerCard: some View {
-        SettingsGroup(title: "ПАРТНЁР") {
+        SettingsGroup {
             VStack(spacing: 0) {
                 HStack {
                     Text("Мой код")
@@ -285,54 +245,16 @@ struct SettingsView: View {
         .animation(.easeInOut(duration: 0.25), value: authService.isPartnerConnected)
     }
 
-    private var accountCard: some View {
-        SettingsGroup(title: "АККАУНТ") {
-            VStack(spacing: 0) {
-                HStack {
-                    Text("Версия приложения")
-                        .font(AppTheme.bodyFont)
-                        .foregroundStyle(AppTheme.primaryText)
-
-                    Spacer()
-
-                    Text("1.0.0")
-                        .font(AppTheme.bodyFont)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-
-                SettingsCardDivider()
-
-                Button {} label: {
-                    HStack {
-                        Text("Написать нам")
-                            .font(AppTheme.bodyFont)
-                            .foregroundStyle(AppTheme.primaryText)
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold, design: .default))
-                            .foregroundStyle(AppTheme.secondaryText)
-                    }
-                }
-                .buttonStyle(.plain)
-
-                SettingsCardDivider()
-
-                Button {
-                    showDeleteConfirmation = true
-                } label: {
-                    HStack {
-                        Text("Удалить все данные")
-                            .font(AppTheme.bodyFont)
-                            .foregroundStyle(.red)
-
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-            }
+    private var deleteAllDataButton: some View {
+        Button {
+            showDeleteConfirmation = true
+        } label: {
+            Text("Удалить все данные")
+                .font(AppTheme.bodyFont)
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity)
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Actions
@@ -349,18 +271,6 @@ struct SettingsView: View {
 
         userService.ownName = trimmedName
         saveProfile(name: trimmedName, avatarData: nil)
-    }
-
-    private func confirmCalendarRename() {
-        let trimmedName = trimmed(calendarNameDraft)
-        guard !trimmedName.isEmpty else { return }
-
-        withAnimation(.easeInOut(duration: 0.2)) {
-            SettingsStore.calendarName = trimmedName
-            isEditingCalendarName = false
-        }
-
-        userService.saveCalendarName(trimmedName, pairID: authService.pairID)
     }
 
     private func loadPhoto(from item: PhotosPickerItem?) {
@@ -393,7 +303,6 @@ struct SettingsView: View {
             try await authService.joinPair(code: partnerCodeInput)
             store.setPairID(authService.pairID)
             saveProfile(name: userService.ownName, avatarData: avatarImage?.jpegData(compressionQuality: 0.85))
-            userService.saveCalendarName(userService.calendarName, pairID: authService.pairID)
             startProfileListeners()
             showPartnerSuccessAlert = true
         } catch {
@@ -410,11 +319,8 @@ struct SettingsView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             userService.ownName = SettingsStore.defaultUserName
             nameDraft = SettingsStore.defaultUserName
-            userService.calendarName = SettingsStore.defaultCalendarName
-            calendarNameDraft = SettingsStore.defaultCalendarName
             avatarImage = nil
             isEditingName = false
-            isEditingCalendarName = false
             partnerCodeInput = ""
         }
 
@@ -477,59 +383,68 @@ private struct ProfileEditSheet: View {
         _selectedImage = State(initialValue: initialImage)
     }
 
+    private var canSave: Bool {
+        !trimmedName.isEmpty
+    }
+
+    private var saveButtonColor: Color {
+        canSave ? Color(hex: "#FF3B6F") : .gray
+    }
+
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Изменить профиль")
-                .font(.system(size: 20, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    EditableAvatarView(
+                        image: selectedImage,
+                        avatarBase64: avatarBase64,
+                        avatarURL: avatarURL,
+                        name: trimmedName.isEmpty ? SettingsStore.defaultUserName : trimmedName,
+                        size: SettingsView.profileAvatarSize,
+                        isLoading: uploadingAvatar,
+                        showsCameraOverlay: false
+                    )
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
 
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                EditableAvatarView(
-                    image: selectedImage,
-                    avatarBase64: avatarBase64,
-                    avatarURL: avatarURL,
-                    name: trimmedName.isEmpty ? SettingsStore.defaultUserName : trimmedName,
-                    size: 96,
-                    isLoading: uploadingAvatar
+                ClearableTextField(
+                    placeholder: "Имя",
+                    text: $nameDraft,
+                    isFocused: $isNameFocused
                 )
+
+                Spacer()
             }
-            .buttonStyle(.plain)
+            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(AppTheme.background)
+            .navigationTitle("Редактировать профиль")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundColor(.gray)
+                }
 
-            ClearableTextField(
-                placeholder: "Имя",
-                text: $nameDraft,
-                isFocused: $isNameFocused
-            )
-
-            Spacer(minLength: 0)
-
-            SheetPrimaryButton(title: "Сохранить", isDisabled: trimmedName.isEmpty) {
-                guard !trimmedName.isEmpty else { return }
-                onSave(trimmedName, selectedAvatarData, selectedImage)
-                dismiss()
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        guard canSave else { return }
+                        onSave(trimmedName, selectedAvatarData, selectedImage)
+                        dismiss()
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(saveButtonColor)
+                    }
+                    .disabled(!canSave)
+                }
             }
-
-            Button {
-                dismiss()
-            } label: {
-                Text("Отмена")
-                    .font(AppTheme.bodyFont)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.plain)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(AppTheme.background)
         .preferredColorScheme(.dark)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                isNameFocused = true
-            }
-        }
         .onChange(of: selectedPhotoItem) { newItem in
             loadPhoto(from: newItem)
         }
@@ -550,71 +465,6 @@ private struct ProfileEditSheet: View {
                 }
             }
         }
-    }
-}
-
-private struct CalendarNameEditSheet: View {
-    let onSave: (String) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @FocusState private var isNameFocused: Bool
-    @State private var nameDraft: String
-
-    init(initialName: String, onSave: @escaping (String) -> Void) {
-        self.onSave = onSave
-        _nameDraft = State(initialValue: initialName)
-    }
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Название календаря")
-                .font(.system(size: 20, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            ClearableTextField(
-                placeholder: "Название календаря",
-                text: $nameDraft,
-                isFocused: $isNameFocused
-            )
-
-            Text("Название будет обновлено у обоих партнёров")
-                .font(AppTheme.captionFont)
-                .foregroundStyle(AppTheme.secondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer(minLength: 0)
-
-            SheetPrimaryButton(title: "Сохранить", isDisabled: trimmedName.isEmpty) {
-                guard !trimmedName.isEmpty else { return }
-                onSave(trimmedName)
-                dismiss()
-            }
-
-            Button {
-                dismiss()
-            } label: {
-                Text("Отмена")
-                    .font(AppTheme.bodyFont)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                isNameFocused = true
-            }
-        }
-    }
-
-    private var trimmedName: String {
-        nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -680,6 +530,12 @@ private struct EditableAvatarView: View {
     let name: String
     let size: CGFloat
     let isLoading: Bool
+    var showsCameraOverlay = true
+
+    private var cameraBadgeSize: CGFloat { size * 28 / 88 }
+    private var cameraIconSize: CGFloat { size * 13 / 88 }
+    private var cameraOffset: CGFloat { size * 2 / 88 }
+    private var outerPadding: CGFloat { size * 8 / 88 }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -704,29 +560,41 @@ private struct EditableAvatarView: View {
                 }
             }
 
-            ZStack {
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 28, height: 28)
-                    .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
+            if showsCameraOverlay {
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: cameraBadgeSize, height: cameraBadgeSize)
+                        .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
 
-                Image(systemName: "camera.fill")
-                    .font(.system(size: 13, weight: .semibold, design: .default))
-                    .foregroundStyle(Color.black)
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: cameraIconSize, weight: .semibold, design: .default))
+                        .foregroundStyle(Color.black)
+                }
+                .offset(x: cameraOffset, y: cameraOffset)
             }
-            .offset(x: 2, y: 2)
         }
-        .frame(width: size + 8, height: size + 8)
+        .frame(
+            width: showsCameraOverlay ? size + outerPadding : size,
+            height: showsCameraOverlay ? size + outerPadding : size
+        )
     }
 }
 
 private struct SettingsGroup<Content: View>: View {
-    let title: String
+    let title: String?
     @ViewBuilder let content: Content
+
+    init(title: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AppTheme.sectionHeader(title)
+            if let title {
+                AppTheme.sectionHeader(title)
+            }
 
             content
                 .padding(16)

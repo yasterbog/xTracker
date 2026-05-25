@@ -20,7 +20,7 @@ final class EventStore: ObservableObject {
         static let legacyPairID = "auth.pairID"
     }
 
-    init(firestoreService: FirestoreService = FirestoreService()) {
+    init(firestoreService: FirestoreService) {
         self.firestoreService = firestoreService
         self.pairID = UserDefaults.standard.string(forKey: Keys.savedPairID)
             ?? UserDefaults.standard.string(forKey: Keys.legacyPairID)
@@ -31,6 +31,10 @@ final class EventStore: ObservableObject {
         } else {
             startListening()
         }
+    }
+
+    convenience init() {
+        self.init(firestoreService: FirestoreService())
     }
 
     func setPairID(_ newPairID: String) {

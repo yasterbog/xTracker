@@ -14,7 +14,6 @@ final class UserService: ObservableObject {
     @Published var ownName: String = SettingsStore.userName
     @Published var ownAvatarURL: String?
     @Published var ownAvatarBase64: String?
-    @Published var calendarName: String = SettingsStore.calendarName
     @Published var partnerName: String = ""
     @Published var partnerAvatarURL: String?
     @Published var partnerAvatarBase64: String?
@@ -24,7 +23,6 @@ final class UserService: ObservableObject {
     private var ownProfileListener: ListenerRegistration?
     private var partnerListener: ListenerRegistration?
     private var partnerAvatarListener: ListenerRegistration?
-    private var calendarNameListener: ListenerRegistration?
     private var activePairID = ""
     private var activeUserID = ""
     private var activePartnerID = ""
@@ -95,7 +93,6 @@ final class UserService: ObservableObject {
 
         if shouldRestartOwn {
             listenToOwnProfile(pairID: pairID, userID: userID)
-            listenToCalendarName(pairID: pairID)
         }
 
         if shouldRestartPartner {
@@ -108,53 +105,6 @@ final class UserService: ObservableObject {
         }
     }
 
-    func saveCalendarName(_ name: String, pairID: String) {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, !pairID.isEmpty else { return }
-
-        calendarName = trimmedName
-        SettingsStore.calendarName = trimmedName
-
-        Task {
-            do {
-                try await database
-                    .collection("pairs")
-                    .document(pairID)
-                    .setData([
-                        "calendarName": trimmedName,
-                        "updatedAt": FieldValue.serverTimestamp(),
-                    ], merge: true)
-                print("UserService: calendarName saved: \(trimmedName)")
-            } catch {
-                print("UserService: calendarName save failed: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    func listenToCalendarName(pairID: String) {
-        calendarNameListener?.remove()
-
-        guard !pairID.isEmpty else {
-            calendarName = SettingsStore.calendarName
-            return
-        }
-
-        calendarNameListener = database
-            .collection("pairs")
-            .document(pairID)
-            .addSnapshotListener { [weak self] snapshot, _ in
-                let name = snapshot?.data()?["calendarName"] as? String
-
-                Task { @MainActor in
-                    if let name, !name.isEmpty {
-                        self?.calendarName = name
-                        SettingsStore.calendarName = name
-                        print("UserService: calendarName listener update: \(name)")
-                    }
-                }
-            }
-    }
-
     func listenToOwnProfile(pairID: String, userID: String) {
         ownProfileListener?.remove()
 
@@ -162,7 +112,6 @@ final class UserService: ObservableObject {
             ownName = SettingsStore.userName
             ownAvatarURL = nil
             ownAvatarBase64 = nil
-            calendarName = SettingsStore.calendarName
             return
         }
 
@@ -266,18 +215,15 @@ final class UserService: ObservableObject {
         ownProfileListener?.remove()
         partnerListener?.remove()
         partnerAvatarListener?.remove()
-        calendarNameListener?.remove()
         ownProfileListener = nil
         partnerListener = nil
         partnerAvatarListener = nil
-        calendarNameListener = nil
         activePairID = ""
         activeUserID = ""
         activePartnerID = ""
         ownName = SettingsStore.userName
         ownAvatarURL = nil
         ownAvatarBase64 = nil
-        calendarName = SettingsStore.calendarName
         partnerName = ""
         partnerAvatarURL = nil
         partnerAvatarBase64 = nil
@@ -301,7 +247,6 @@ final class UserService: ObservableObject {
         ownProfileListener?.remove()
         partnerListener?.remove()
         partnerAvatarListener?.remove()
-        calendarNameListener?.remove()
     }
 }
 

@@ -9,23 +9,16 @@ import UIKit
 enum SettingsStore {
     enum Keys {
         static let userName = "settings.userName"
-        static let calendarName = "settings.calendarName"
         static let myPartnerCode = "settings.myPartnerCode"
         static let partnerConnected = "settings.partnerConnected"
         static let avatarImageData = "settings.avatarImageData"
     }
 
     static let defaultUserName = "Моё имя"
-    static let defaultCalendarName = "Наш календарь"
 
     static var userName: String {
         get { UserDefaults.standard.string(forKey: Keys.userName) ?? defaultUserName }
         set { UserDefaults.standard.set(newValue, forKey: Keys.userName) }
-    }
-
-    static var calendarName: String {
-        get { UserDefaults.standard.string(forKey: Keys.calendarName) ?? defaultCalendarName }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.calendarName) }
     }
 
     static var myPartnerCode: String {
@@ -72,7 +65,6 @@ enum SettingsStore {
     static func deleteAllData() {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: Keys.userName)
-        defaults.removeObject(forKey: Keys.calendarName)
         defaults.removeObject(forKey: Keys.myPartnerCode)
         defaults.removeObject(forKey: Keys.partnerConnected)
         defaults.removeObject(forKey: Keys.avatarImageData)

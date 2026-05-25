@@ -13,6 +13,7 @@ enum ToyType: String, CaseIterable, Codable, Identifiable {
     case handcuffs
     case blindfold
     case gag
+    case eroticLingerie
 
     var id: String { rawValue }
 
@@ -25,6 +26,7 @@ enum ToyType: String, CaseIterable, Codable, Identifiable {
         case .handcuffs: "Наручники"
         case .blindfold: "Повязка на глаза"
         case .gag: "Кляп"
+        case .eroticLingerie: "Эротическое бельё"
         }
     }
 
@@ -37,6 +39,7 @@ enum ToyType: String, CaseIterable, Codable, Identifiable {
         case .handcuffs: "⛓️"
         case .blindfold: "🙈"
         case .gag: "👄"
+        case .eroticLingerie: "👙"
         }
     }
 }

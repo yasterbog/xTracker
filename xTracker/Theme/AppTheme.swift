@@ -4,13 +4,16 @@
 //
 
 import SwiftUI
+import UIKit
 
 enum AppTheme {
     static let background = Color.black
     static let primaryText = Color.white
     static let secondaryText = Color.gray.opacity(0.5)
-    static let sectionHeaderText = Color.gray.opacity(0.6)
-    static let cardBackground = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
+    static let sectionHeaderText = Color(hex: "#8A8A8E")
+    static let cardBackground = Color(hex: "#121212")
+    static let cardBorder = Color(hex: "#1F1F1F")
+    static let cardBorderWidth: CGFloat = 1
     static let separator = Color.white.opacity(0.06)
     static let accent = Color(red: 255 / 255, green: 59 / 255, blue: 111 / 255)
     static let eventDot = Color(red: 0.35, green: 0.55, blue: 1.0)
@@ -30,8 +33,19 @@ enum AppTheme {
     static func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(sectionHeaderFont)
-            .tracking(1.5)
+            .fontWeight(.semibold)
+            .kerning(-0.3)
             .foregroundStyle(sectionHeaderText)
+    }
+
+    static func applyLargeNavigationTitleAppearance() {
+        let appearance = UINavigationBarAppearance()
+        appearance.largeTitleTextAttributes = [
+            .font: UIFont.systemFont(ofSize: 34, weight: .black),
+            .kern: -0.5,
+            .foregroundColor: UIColor.white,
+        ]
+        UINavigationBar.appearance().largeTitleTextAttributes = appearance.largeTitleTextAttributes
     }
 }
 
@@ -61,4 +75,40 @@ extension Color {
 
         self.init(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
     }
+}
+
+extension View {
+  @ViewBuilder
+  func appLargeNavigationTitle() -> some View {
+    Group {
+      if #available(iOS 17.0, *) {
+        self.toolbarTitleDisplayMode(.large)
+      } else {
+        self.navigationBarTitleDisplayMode(.large)
+      }
+    }
+    .onAppear {
+      AppTheme.applyLargeNavigationTitleAppearance()
+    }
+  }
+
+  @ViewBuilder
+  func chipScrollAllowsOverflow() -> some View {
+    if #available(iOS 17.0, *) {
+      scrollClipDisabled()
+    } else {
+      self
+    }
+  }
+
+  func appCardSurface(cornerRadius: CGFloat) -> some View {
+    background(
+      RoundedRectangle(cornerRadius: cornerRadius)
+        .fill(AppTheme.cardBackground)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: cornerRadius)
+        .stroke(AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
+    )
+  }
 }

@@ -140,10 +140,13 @@ struct StatisticsCalculator {
     }
 
     func activityCounts() -> [(activity: ActivityType, count: Int)] {
-        ActivityType.allCases.map { activity in
-            let count = periodEvents.filter { $0.activities.contains(activity) }.count
-            return (activity, count)
-        }
+        ActivityType.allCases
+            .map { activity in
+                let count = periodEvents.filter { $0.activities.contains(activity) }.count
+                return (activity, count)
+            }
+            .filter { $0.count > 0 }
+            .sorted { $0.count > $1.count }
     }
 
     func finishSlices() -> [(finish: FinishType, count: Int, fraction: Double)] {
@@ -154,6 +157,7 @@ struct StatisticsCalculator {
             guard count > 0 else { return nil }
             return (finish, count, Double(count) / Double(periodEvents.count))
         }
+        .sorted { $0.count > $1.count }
     }
 
     var eventsWithToysCount: Int {
@@ -161,10 +165,13 @@ struct StatisticsCalculator {
     }
 
     func toyCounts() -> [(toy: ToyType, count: Int)] {
-        ToyType.allCases.map { toy in
-            let count = periodEvents.filter { $0.toys.contains(toy) }.count
-            return (toy, count)
-        }
+        ToyType.allCases
+            .map { toy in
+                let count = periodEvents.filter { $0.toys.contains(toy) }.count
+                return (toy, count)
+            }
+            .filter { $0.count > 0 }
+            .sorted { $0.count > $1.count }
     }
 
     func timeOfDayCounts() -> [(period: TimeOfDayPeriod, count: Int)] {

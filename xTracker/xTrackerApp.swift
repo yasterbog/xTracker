@@ -7,6 +7,7 @@
 
 import FirebaseCore
 import SwiftUI
+import UIKit
 
 @main
 struct xTrackerApp: App {
@@ -16,6 +17,18 @@ struct xTrackerApp: App {
 
     init() {
         FirebaseApp.configure()
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.largeTitleTextAttributes = [
+            .font: UIFont.systemFont(ofSize: 34, weight: .black),
+            .kern: -0.5,
+        ]
+        appearance.titleTextAttributes = [
+            .font: UIFont.systemFont(ofSize: 17, weight: .semibold),
+        ]
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
     }
 
     var body: some Scene {

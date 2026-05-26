@@ -60,7 +60,7 @@ struct CalendarView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(AppTheme.background)
             .navigationTitle(currentMonthYearString)
-            .navigationBarTitleDisplayMode(.large)
+            .appLargeNavigationTitle()
             .toolbarBackground(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $showAddEvent) {
@@ -147,7 +147,7 @@ struct CalendarView: View {
         Group {
             if !monthlyActivityCounts.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         ForEach(monthlyActivityCounts, id: \.activity.id) { item in
                             MonthlyActivityChip(
                                 activity: item.activity,
@@ -156,10 +156,13 @@ struct CalendarView: View {
                             ) {
                                 toggleActivityFilter(item.activity)
                             }
+                            .padding(.horizontal, 2)
                         }
                     }
+                    .padding(.vertical, 4)
                     .padding(.horizontal, 16)
                 }
+                .chipScrollAllowsOverflow()
                 .padding(.bottom, 10)
             }
         }
@@ -247,9 +250,9 @@ struct CalendarView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets(top: 5, leading: AppTheme.screenHorizontalPadding, bottom: 5, trailing: AppTheme.screenHorizontalPadding))
+                .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
                 .listRowSeparator(.hidden)
-                .listRowBackground(AppTheme.background)
+                .listRowBackground(Color.clear)
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         eventPendingDeletion = event
@@ -396,7 +399,11 @@ private struct MonthlyActivityChip: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? AppTheme.accent : Color.white.opacity(0.1))
+                    .fill(isSelected ? AppTheme.accent : AppTheme.cardBackground)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? AppTheme.accent : AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
             )
         }
         .buttonStyle(.plain)
@@ -520,29 +527,36 @@ private struct CalendarEventRow: View {
                 avatarBase64: creatorProfile.avatarBase64,
                 avatarURL: creatorProfile.avatarURL,
                 name: creatorProfile.name,
-                size: 28
+                size: 48
             )
 
-            Text(Self.timeFormatter.string(from: event.date))
-                .font(.system(size: 15, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.accent)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(width: 56, alignment: .leading)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(Self.timeFormatter.string(from: event.date))
+                    .font(.system(size: 15, weight: .medium, design: .default))
+                    .foregroundStyle(AppTheme.primaryText)
 
-            Text(event.activities.map(\.emoji).joined(separator: " "))
-                .font(.system(size: 20, weight: .regular, design: .default))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 4) {
+                    ForEach(event.activities) { activity in
+                        Text(activity.emoji)
+                            .font(.system(size: 24, weight: .regular, design: .default))
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold, design: .default))
+                .foregroundStyle(AppTheme.secondaryText)
         }
-        .padding(14)
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(AppTheme.cardBackground)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(AppTheme.separator, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
         )
     }
 }

@@ -315,20 +315,13 @@ private struct DetailCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(AppTheme.sectionHeaderFont)
-                .tracking(1.5)
-                .foregroundStyle(AppTheme.sectionHeaderText)
-                .textCase(.uppercase)
+            AppTheme.sectionHeader(title)
 
             content
         }
         .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
-                .fill(AppTheme.cardBackground)
-        )
+        .appCardSurface(cornerRadius: AppTheme.cardCornerRadius)
     }
 }
 

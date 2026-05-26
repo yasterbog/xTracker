@@ -47,7 +47,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(AppTheme.background)
             .navigationTitle("Настройки")
-            .navigationBarTitleDisplayMode(.large)
+            .appLargeNavigationTitle()
             .toolbarBackground(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $showPartnerSheet) {
@@ -599,10 +599,7 @@ private struct SettingsGroup<Content: View>: View {
             content
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(AppTheme.cardBackground)
-                )
+                .appCardSurface(cornerRadius: 16)
         }
     }
 }

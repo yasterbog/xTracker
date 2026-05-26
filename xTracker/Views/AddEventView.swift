@@ -206,10 +206,7 @@ struct AddEventView: View {
                     .font(AppTheme.bodyFont)
                     .foregroundStyle(AppTheme.primaryText)
                     .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                            .fill(Color.white.opacity(0.06))
-                    )
+                .appCardSurface(cornerRadius: AppTheme.compactCardCornerRadius)
                     .onChange(of: notes) { newValue in
                         if newValue.count > notesLimit {
                             notes = String(newValue.prefix(notesLimit))
@@ -326,10 +323,7 @@ private struct FormSection<Content: View>: View {
         }
         .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
-                .fill(AppTheme.cardBackground)
-        )
+        .appCardSurface(cornerRadius: AppTheme.cardCornerRadius)
     }
 }
 
@@ -340,11 +334,13 @@ private struct ToggleRowCard<Content: View>: View {
         content
         .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
-                .fill(AppTheme.cardBackground)
-        )
+        .appCardSurface(cornerRadius: AppTheme.cardCornerRadius)
     }
+}
+
+private enum AddEventCardStyle {
+    static let unselectedBackground = Color(hex: "#1A1A1A")
+    static let unselectedLabel = Color(hex: "#C0C0C0")
 }
 
 private struct SelectableCard: View {
@@ -366,7 +362,7 @@ private struct SelectableCard: View {
 
                 Text(title)
                     .font(.system(size: 13, weight: .regular, design: .default))
-                    .foregroundStyle(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+                    .foregroundStyle(isSelected ? AppTheme.primaryText : AddEventCardStyle.unselectedLabel)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -376,11 +372,11 @@ private struct SelectableCard: View {
             .padding(.horizontal, 8)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                    .fill(isSelected ? AppTheme.accent : Color.white.opacity(0.06))
+                    .fill(isSelected ? AppTheme.accent : AddEventCardStyle.unselectedBackground)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                    .stroke(isSelected ? AppTheme.accent : AppTheme.separator, lineWidth: 1)
+                    .stroke(isSelected ? AppTheme.accent : AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
             )
         }
         .buttonStyle(.plain)
@@ -403,12 +399,16 @@ private struct FinishPill: View {
         } label: {
             Text(title)
                 .font(.system(size: 14, weight: .regular, design: .default))
-                .foregroundStyle(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+                .foregroundStyle(isSelected ? AppTheme.primaryText : AddEventCardStyle.unselectedLabel)
                 .padding(.horizontal, 16)
                 .frame(height: 36)
                 .background(
                     RoundedRectangle(cornerRadius: 18)
-                        .fill(isSelected ? AppTheme.accent : Color.white.opacity(0.1))
+                        .fill(isSelected ? AppTheme.accent : AddEventCardStyle.unselectedBackground)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(isSelected ? AppTheme.accent : AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
                 )
         }
         .buttonStyle(.plain)

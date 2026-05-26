@@ -53,7 +53,7 @@ struct StatisticsView: View {
             .scrollIndicators(.hidden)
             .background(AppTheme.background)
             .navigationTitle("Статистика")
-            .navigationBarTitleDisplayMode(.large)
+            .appLargeNavigationTitle()
             .toolbarBackground(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $showCustomPeriodSheet) {
@@ -96,7 +96,7 @@ struct StatisticsView: View {
 
     private var periodFilterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(Array(StatisticsPeriod.filterOrder.enumerated()), id: \.element.id) { index, period in
                     FilterPill(
                         title: period.rawValue,
@@ -114,32 +114,33 @@ struct StatisticsView: View {
                             selectedPeriod = period
                         }
                     }
+                    .padding(.horizontal, 2)
                     .padding(.leading, index == 0 ? 20 : 0)
                     .padding(.trailing, index == StatisticsPeriod.filterOrder.count - 1 ? 20 : 0)
                 }
             }
-            .padding(.horizontal, 0)
+            .padding(.vertical, 4)
         }
+        .chipScrollAllowsOverflow()
+        .padding(.bottom, 4)
         .frame(maxWidth: .infinity)
     }
 
     // MARK: - Sections
 
     private var generalSection: some View {
-        StatsSectionCard(title: "Общее") {
-            LazyVGrid(columns: Self.twoColumns, spacing: 12) {
-                StatCard(title: "Всего событий", value: "\(calculator.totalEvents)")
-                StatCard(
-                    title: "С последнего события",
-                    value: calculator.daysSinceLastEvent.map { "\($0) дн." } ?? "—"
-                )
-                StatCard(title: "Максимальный перерыв", value: "\(calculator.maxGapDays) дн.")
-                StatCard(
-                    title: "Она кончила",
-                    value: "\(calculator.femaleOrgasmCount)",
-                    trailingEmoji: "💫"
-                )
-            }
+        LazyVGrid(columns: Self.twoColumns, spacing: 12) {
+            StatCard(title: "Всего событий", value: "\(calculator.totalEvents)")
+            StatCard(
+                title: "Она кончила",
+                value: "\(calculator.femaleOrgasmCount)",
+                trailingEmoji: "💫"
+            )
+            StatCard(title: "Максимальный перерыв", value: "\(calculator.maxGapDays) дн.")
+            StatCard(
+                title: "С последнего события",
+                value: calculator.daysSinceLastEvent.map { "\($0) дн." } ?? "—"
+            )
         }
     }
 
@@ -364,23 +365,15 @@ private struct CustomPeriodSheet: View {
 
 // MARK: - Components
 
-private enum StatsCardStyle {
-    static let sectionBackground = AppTheme.cardBackground
-    static let statTileBackground = Color(red: 0.17, green: 0.17, blue: 0.18)
-}
-
 private struct StatsSectionCard<Content: View>: View {
     let title: String
-    var background: Color
     @ViewBuilder let content: Content
 
     init(
         title: String,
-        background: Color = StatsCardStyle.sectionBackground,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
-        self.background = background
         self.content = content()
     }
 
@@ -392,10 +385,7 @@ private struct StatsSectionCard<Content: View>: View {
         }
         .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
-                .fill(background)
-        )
+        .appCardSurface(cornerRadius: AppTheme.cardCornerRadius)
     }
 }
 
@@ -426,9 +416,7 @@ private struct StatCard: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text(title)
-                .font(.system(size: 13))
-                .foregroundColor(.gray)
+            AppTheme.sectionHeader(title)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -438,10 +426,7 @@ private struct StatCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                .fill(StatsCardStyle.statTileBackground)
-        )
+        .appCardSurface(cornerRadius: 16)
     }
 }
 
@@ -464,7 +449,11 @@ private struct FilterPill: View {
                 .frame(height: 36)
                 .background(
                     RoundedRectangle(cornerRadius: 18)
-                        .fill(isSelected ? AppTheme.accent : Color.white.opacity(0.1))
+                        .fill(isSelected ? AppTheme.accent : AppTheme.cardBackground)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(isSelected ? AppTheme.accent : AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
                 )
         }
         .buttonStyle(.plain)
@@ -533,17 +522,18 @@ private struct TimeOfDayBar: View {
     let isHighlighted: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
-            Text("\(count)")
-                .font(.system(size: 13, weight: .semibold, design: .default))
-                .foregroundStyle(isHighlighted ? AppTheme.accent : AppTheme.secondaryText)
+        VStack(spacing: 4) {
+            Spacer(minLength: 0)
 
-            ZStack(alignment: .bottom) {
+            VStack(spacing: 2) {
+                Text("\(count)")
+                    .font(.system(size: 13, weight: .semibold, design: .default))
+                    .foregroundStyle(isHighlighted ? AppTheme.accent : AppTheme.secondaryText)
+
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isHighlighted ? AppTheme.accent : Color.white.opacity(0.15))
                     .frame(width: barWidth, height: barHeight)
             }
-            .frame(height: 120, alignment: .bottom)
 
             Text(label)
                 .font(.system(size: 11, weight: .regular, design: .default))
@@ -555,6 +545,7 @@ private struct TimeOfDayBar: View {
                 .foregroundStyle(AppTheme.secondaryText)
         }
         .frame(width: barWidth)
+        .frame(maxHeight: .infinity, alignment: .bottom)
     }
 
     private var barHeight: CGFloat {

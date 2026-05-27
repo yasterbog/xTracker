@@ -76,28 +76,16 @@ struct StatisticsView: View {
             .navigationTitle("Статистика")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        if !customPeriodActive {
-                            customStartDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-                            customEndDate = Date()
-                        }
-                        showPeriodOptionsSheet = true
-                    } label: {
-                        Image(systemName: "line.3.horizontal.decrease")
-                            .foregroundColor(customPeriodActive ? Color(hex: "#FF3B6F") : .white)
-                    }
-                }
-            }
         }
         .sheet(isPresented: $showPeriodOptionsSheet) {
-            PeriodOptionsSheet(
+            CustomPeriodSheet(
                 startDate: $customStartDate,
                 endDate: $customEndDate,
-                onApplyCustom: {
-                    customPeriodActive = true
-                    selectedPeriod = .custom
+                onApply: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        customPeriodActive = true
+                        selectedPeriod = .custom
+                    }
                 }
             )
             .presentationDetents([.medium])
@@ -130,53 +118,68 @@ struct StatisticsView: View {
 
     // MARK: - Filter
 
-    private var periodFilterBar: some View {
-        Group {
-            if customPeriodActive {
-                HStack(spacing: 8) {
-                    Text(customPeriodLabel)
-                        .font(.system(size: 15))
-                        .foregroundColor(.white)
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            customPeriodActive = false
-                            segmentedPeriod = .allTime
-                            selectedPeriod = .allTime
-                        }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 4)
-            } else {
-                Picker("", selection: $segmentedPeriod) {
-                    ForEach(SegmentedStatisticsPeriod.allCases) { period in
-                        Text(period.rawValue).tag(period)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 4)
-                .onChange(of: segmentedPeriod) { newPeriod in
-                    selectedPeriod = newPeriod.statisticsPeriod
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.3), value: customPeriodActive)
-    }
-
-    private var customPeriodLabel: String {
+    private var customPeriodRangeLabel: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "d MMMM"
         let start = formatter.string(from: customStartDate)
         let end = formatter.string(from: customEndDate)
         return "\(start) — \(end)"
+    }
+
+    private var periodFilterBar: some View {
+        Group {
+            if customPeriodActive {
+                HStack(spacing: 8) {
+                    Text(customPeriodRangeLabel)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            customPeriodActive = false
+                            selectedPeriod = segmentedPeriod.statisticsPeriod
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.gray)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: 16) {
+                    Picker("", selection: $segmentedPeriod) {
+                        ForEach(SegmentedStatisticsPeriod.allCases) { period in
+                            Text(period.rawValue).tag(period)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: segmentedPeriod) { newPeriod in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            selectedPeriod = newPeriod.statisticsPeriod
+                            customPeriodActive = false
+                        }
+                    }
+
+                    Button {
+                        customStartDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+                        customEndDate = Date()
+                        showPeriodOptionsSheet = true
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 4)
+        .animation(.easeInOut(duration: 0.3), value: customPeriodActive)
     }
 
     // MARK: - Sections
@@ -554,6 +557,87 @@ private struct PeriodOptionsSheet: View {
     }
 }
 
+// MARK: - Custom Period Sheet (Variant B)
+
+private struct CustomPeriodSheet: View {
+    @Binding var startDate: Date
+    @Binding var endDate: Date
+    let onApply: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Свой период")
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .foregroundStyle(AppTheme.primaryText)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Начало")
+                            .font(AppTheme.captionFont)
+                            .foregroundStyle(AppTheme.secondaryText)
+
+                        DatePicker("", selection: $startDate, in: ...endDate, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .colorScheme(.dark)
+                            .tint(AppTheme.accent)
+                            .environment(\.locale, Locale(identifier: "ru_RU"))
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Конец")
+                            .font(AppTheme.captionFont)
+                            .foregroundStyle(AppTheme.secondaryText)
+
+                        DatePicker("", selection: $endDate, in: startDate...Date(), displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .colorScheme(.dark)
+                            .tint(AppTheme.accent)
+                            .environment(\.locale, Locale(identifier: "ru_RU"))
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    onApply()
+                    dismiss()
+                } label: {
+                    Text("Применить")
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .foregroundStyle(AppTheme.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color(hex: "#FF3B6F"))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(AppTheme.background)
+            .navigationTitle("Период")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
 // MARK: - Monthly Line Chart
 
 private struct MonthlyEventsLineChart: View {
@@ -797,7 +881,7 @@ private struct StatCard: View {
 
             valueRow
         }
-        .padding(16)
+        .padding(18)
         .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100, alignment: .leading)
         .statsGlassCardStyle()
     }

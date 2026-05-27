@@ -18,8 +18,6 @@ struct CalendarView: View {
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var showAddEvent = false
     @State private var selectedEvent: Event?
-    @State private var eventPendingDeletion: Event?
-    @State private var showDeleteConfirmation = false
     @State private var selectedActivityFilters: Set<ActivityType> = []
 
     private var hasActiveActivityFilter: Bool {
@@ -87,16 +85,6 @@ struct CalendarView: View {
             EventDetailView(eventID: event.id)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-        }
-        .alert("Удалить событие?", isPresented: $showDeleteConfirmation) {
-            Button("Удалить", role: .destructive) {
-                deletePendingEvent()
-            }
-            Button("Отмена", role: .cancel) {
-                eventPendingDeletion = nil
-            }
-        } message: {
-            Text("Это действие нельзя отменить.")
         }
         .preferredColorScheme(.dark)
     }
@@ -227,16 +215,25 @@ struct CalendarView: View {
     }
 
     private var emptyEventsState: some View {
-        VStack(spacing: 10) {
-            Text("❤️")
-                .font(.system(size: 22, weight: .regular, design: .default))
-            Text("Нет событий")
-                .font(AppTheme.captionFont)
-                .foregroundStyle(AppTheme.secondaryText)
+        VStack {
+            Spacer()
+
+            VStack(spacing: 12) {
+                Image("heart_fill")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(Color(hex: "#FF3B6F"))
+
+                Text("Нет событий")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 15))
+            }
+
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.top, 20)
-        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, minHeight: 180)
     }
 
     private var eventsList: some View {
@@ -251,18 +248,15 @@ struct CalendarView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 20)
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        eventPendingDeletion = event
-                        showDeleteConfirmation = true
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .tint(.red)
+            }
+            .onDelete { indexSet in
+                indexSet.forEach { index in
+                    let event = selectedDayEvents[index]
+                    store.deleteEvent(event)
                 }
             }
         }
+        .padding(.horizontal, 20)
         .padding(.top, 11)
     }
 
@@ -335,13 +329,6 @@ struct CalendarView: View {
 
     private func isFutureDate(_ date: Date) -> Bool {
         calendar.startOfDay(for: date) > calendar.startOfDay(for: Date())
-    }
-
-    private func deletePendingEvent() {
-        guard let event = eventPendingDeletion else { return }
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        store.deleteEvent(event)
-        eventPendingDeletion = nil
     }
 
     private func creatorProfile(for event: Event) -> UserAvatarProfile {
@@ -545,9 +532,10 @@ private struct CalendarEventRow: View {
                 .font(.system(size: 14, weight: .semibold, design: .default))
                 .foregroundStyle(AppTheme.secondaryText)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
-        .glassCardSurface(cornerRadius: 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 18)
+        .glassCardChrome()
     }
 }
 

@@ -41,6 +41,12 @@ extension View {
         modifier(GlassCardStyle(padding: padding))
     }
 
+    func glassSectionCard() -> some View {
+        padding(.horizontal, 18)
+            .padding(.vertical, 18)
+            .glassCardChrome()
+    }
+
     func glassCardChrome() -> some View {
         background(Color.white.opacity(0.07))
             .clipShape(GlassCardMetrics.shape)

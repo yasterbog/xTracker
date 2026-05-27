@@ -205,8 +205,6 @@ struct AddEventView: View {
                     .lineLimit(4...8)
                     .font(AppTheme.bodyFont)
                     .foregroundStyle(AppTheme.primaryText)
-                    .padding(12)
-                    .glassCardSurface(cornerRadius: AppTheme.compactCardCornerRadius)
                     .onChange(of: notes) { newValue in
                         if newValue.count > notesLimit {
                             notes = String(newValue.prefix(notesLimit))
@@ -321,9 +319,8 @@ private struct FormSection<Content: View>: View {
 
             content
         }
-        .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCardSurface(cornerRadius: 20)
+        .glassSectionCard()
     }
 }
 
@@ -332,9 +329,8 @@ private struct ToggleRowCard<Content: View>: View {
 
     var body: some View {
         content
-        .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCardSurface(cornerRadius: 20)
+        .glassSectionCard()
     }
 }
 

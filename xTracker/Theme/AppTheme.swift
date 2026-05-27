@@ -88,8 +88,8 @@ struct AmbientGlowBackground: View {
 
             LinearGradient(
                 colors: [
-                    Color(hex: "#FF3B6F").opacity(0.18),
-                    Color(hex: "#FF3B6F").opacity(0.05),
+                    Color(hex: "#FF3B6F").opacity(0.16),
+                    Color(hex: "#FF3B6F").opacity(0.04),
                     Color.clear,
                 ],
                 startPoint: startPoint,

@@ -319,9 +319,8 @@ private struct DetailCard<Content: View>: View {
 
             content
         }
-        .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCardSurface(cornerRadius: 20)
+        .glassSectionCard()
     }
 }
 

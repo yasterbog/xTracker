@@ -601,9 +601,8 @@ private struct SettingsGroup<Content: View>: View {
             }
 
             content
-                .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .glassCardSurface(cornerRadius: 20)
+                .glassCard()
         }
     }
 }

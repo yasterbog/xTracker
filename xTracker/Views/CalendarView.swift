@@ -67,7 +67,7 @@ struct CalendarView: View {
                         monthlySummarySection
 
                         eventsSection
-                            .padding(.top, 8)
+                            .padding(.top, 4)
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
@@ -192,7 +192,7 @@ struct CalendarView: View {
                 .padding(.bottom, 10)
             }
         }
-        .padding(.top, 0)
+        .padding(.top, 4)
         .id(displayedMonth)
     }
 
@@ -210,7 +210,8 @@ struct CalendarView: View {
         VStack(spacing: 0) {
             selectedDayHeader
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
 
             if selectedDayEvents.isEmpty {
                 emptyEventsState
@@ -287,7 +288,7 @@ struct CalendarView: View {
         .scrollContentBackground(.hidden)
         .scrollDisabled(true)
         .frame(height: CGFloat(selectedDayEvents.count) * 100)
-        .padding(.top, 11)
+        .padding(.top, 8)
     }
 
     // MARK: - Helpers

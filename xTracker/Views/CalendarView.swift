@@ -18,6 +18,8 @@ struct CalendarView: View {
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var showAddEvent = false
     @State private var selectedEvent: Event?
+    @State private var eventToDelete: Event?
+    @State private var showDeleteAlert = false
     @State private var selectedActivityFilters: Set<ActivityType> = []
 
     private var hasActiveActivityFilter: Bool {
@@ -32,7 +34,15 @@ struct CalendarView: View {
     }()
 
     private var selectedDayEvents: [Event] {
-        let events = store.events(on: selectedDate)
+        let dayStart = calendar.startOfDay(for: selectedDate)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+            return []
+        }
+
+        let events = store.events
+            .filter { $0.date >= dayStart && $0.date < dayEnd }
+            .sorted { $0.date > $1.date }
+
         guard hasActiveActivityFilter else { return events }
         return events.filter(eventMatchesFilter)
     }
@@ -60,8 +70,8 @@ struct CalendarView: View {
                             .padding(.top, 8)
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
-                    .padding(.bottom, 20)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .scrollIndicators(.hidden)
             }
             .ambientMainScreen(gradientStart: gradientStart, gradientEnd: gradientEnd)
@@ -85,6 +95,17 @@ struct CalendarView: View {
             EventDetailView(eventID: event.id)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .alert("Удалить событие?", isPresented: $showDeleteAlert, presenting: eventToDelete) { event in
+            Button("Удалить", role: .destructive) {
+                store.deleteEvent(event)
+                eventToDelete = nil
+            }
+            Button("Отмена", role: .cancel) {
+                eventToDelete = nil
+            }
+        } message: { _ in
+            Text("Это действие нельзя отменить.")
         }
         .preferredColorScheme(.dark)
     }
@@ -237,7 +258,7 @@ struct CalendarView: View {
     }
 
     private var eventsList: some View {
-        LazyVStack(spacing: 10) {
+        List {
             ForEach(selectedDayEvents) { event in
                 Button {
                     selectedEvent = event
@@ -248,15 +269,24 @@ struct CalendarView: View {
                     )
                 }
                 .buttonStyle(.plain)
-            }
-            .onDelete { indexSet in
-                indexSet.forEach { index in
-                    let event = selectedDayEvents[index]
-                    store.deleteEvent(event)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button {
+                        eventToDelete = event
+                        showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .tint(.red)
                 }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
             }
         }
-        .padding(.horizontal, 20)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .scrollDisabled(true)
+        .frame(height: CGFloat(selectedDayEvents.count) * 100)
         .padding(.top, 11)
     }
 

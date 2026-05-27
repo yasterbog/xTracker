@@ -148,7 +148,7 @@ struct StatisticsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                HStack(spacing: 16) {
+                HStack(alignment: .center, spacing: 16) {
                     Picker("", selection: $segmentedPeriod) {
                         ForEach(SegmentedStatisticsPeriod.allCases) { period in
                             Text(period.rawValue).tag(period)
@@ -171,7 +171,7 @@ struct StatisticsView: View {
                             .foregroundColor(.white)
                             .frame(width: 32, height: 32)
                             .background(Color.white.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }

@@ -7,7 +7,7 @@ import Foundation
 
 enum StatisticsPeriod: String, CaseIterable, Identifiable {
     case allTime = "Всё время"
-    case week = "7 дней"
+    case week = "Неделя"
     case month = "Месяц"
     case threeMonths = "3 месяца"
     case year = "Год"
@@ -17,6 +17,31 @@ enum StatisticsPeriod: String, CaseIterable, Identifiable {
 
     static var filterOrder: [StatisticsPeriod] {
         [.allTime, .week, .month, .threeMonths, .year, .custom]
+    }
+}
+
+enum SegmentedStatisticsPeriod: String, CaseIterable, Identifiable {
+    case allTime = "Всё время"
+    case week = "Неделя"
+    case month = "Месяц"
+
+    var id: String { rawValue }
+
+    var statisticsPeriod: StatisticsPeriod {
+        switch self {
+        case .allTime: .allTime
+        case .week: .week
+        case .month: .month
+        }
+    }
+
+    init?(statisticsPeriod: StatisticsPeriod) {
+        switch statisticsPeriod {
+        case .allTime: self = .allTime
+        case .week: self = .week
+        case .month: self = .month
+        case .threeMonths, .year, .custom: return nil
+        }
     }
 }
 
@@ -181,14 +206,56 @@ struct StatisticsCalculator {
         }
     }
 
+    func monthlyEventCounts(lastMonths: Int = 12) -> [(label: String, count: Int)] {
+        var localeCalendar = calendar
+        localeCalendar.locale = Locale(identifier: "ru_RU")
+
+        let formatter = DateFormatter()
+        formatter.locale = localeCalendar.locale
+        formatter.dateFormat = "LLL"
+
+        guard
+            let currentMonthStart = localeCalendar.date(
+                from: localeCalendar.dateComponents([.year, .month], from: referenceDate)
+            )
+        else {
+            return []
+        }
+
+        return (0..<lastMonths).reversed().compactMap { monthOffset -> (label: String, count: Int)? in
+            guard
+                let monthStart = localeCalendar.date(byAdding: .month, value: -monthOffset, to: currentMonthStart),
+                let nextMonth = localeCalendar.date(byAdding: .month, value: 1, to: monthStart),
+                let monthEnd = localeCalendar.date(byAdding: .second, value: -1, to: nextMonth)
+            else {
+                return nil
+            }
+
+            let count = events.filter { $0.date >= monthStart && $0.date <= monthEnd }.count
+            let rawLabel = formatter.string(from: monthStart)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+                .trimmingCharacters(in: .whitespaces)
+            let label = rawLabel.prefix(1).uppercased() + rawLabel.dropFirst()
+            return (label, count)
+        }
+    }
+
     private var periodStartDate: Date? {
         switch period {
         case .allTime:
             return nil
         case .week:
-            return calendar.date(byAdding: .day, value: -7, to: referenceDate)
+            let today = calendar.startOfDay(for: referenceDate)
+            let weekday = calendar.component(.weekday, from: today)
+            let daysFromMonday = (weekday + 5) % 7
+            guard let monday = calendar.date(byAdding: .day, value: -daysFromMonday, to: today) else {
+                return nil
+            }
+            return calendar.startOfDay(for: monday)
         case .month:
-            return calendar.date(from: calendar.dateComponents([.year, .month], from: referenceDate))
+            let today = calendar.startOfDay(for: referenceDate)
+            let components = calendar.dateComponents([.year, .month], from: today)
+            return calendar.date(from: components)
         case .threeMonths:
             return calendar.date(byAdding: .month, value: -3, to: referenceDate)
         case .year:

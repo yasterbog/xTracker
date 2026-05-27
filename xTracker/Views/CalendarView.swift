@@ -10,6 +10,8 @@ struct CalendarView: View {
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var userService: UserService
+    let gradientStart: UnitPoint
+    let gradientEnd: UnitPoint
 
     @State private var anchorMonth = Calendar.current.startOfMonth(for: Date())
     @State private var monthOffset = 0
@@ -49,19 +51,34 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                calendarSection
+            ZStack {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        calendarSection
 
-                monthlySummarySection
+                        monthlySummarySection
 
-                eventsSection
-                    .padding(.top, 8)
+                        eventsSection
+                            .padding(.top, 8)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .padding(.bottom, 20)
+                }
+                .scrollIndicators(.hidden)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppTheme.background)
+            .ambientMainScreen(gradientStart: gradientStart, gradientEnd: gradientEnd)
             .navigationTitle(currentMonthYearString)
-            .appLargeNavigationTitle()
+            .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showAddEvent = true }) {
+                        Image(systemName: "plus")
+                            .foregroundColor(.white)
+                            .fontWeight(.semibold)
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showAddEvent) {
             AddEventView(prefilledDate: selectedDate)
@@ -186,9 +203,6 @@ struct CalendarView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
 
-            Divider()
-                .overlay(AppTheme.secondaryText.opacity(0.25))
-
             if selectedDayEvents.isEmpty {
                 emptyEventsState
                     .id(selectedDate)
@@ -199,8 +213,7 @@ struct CalendarView: View {
                     .transition(.opacity)
             }
         }
-        .background(AppTheme.background)
-        .frame(maxHeight: .infinity)
+        .padding(.horizontal, 0)
         .animation(.easeInOut(duration: 0.2), value: selectedDate)
     }
 
@@ -209,37 +222,25 @@ struct CalendarView: View {
             Text(CalendarFormatters.selectedDayHeader(for: selectedDate, calendar: calendar))
                 .font(.system(size: 16, weight: .semibold, design: .default))
                 .foregroundStyle(AppTheme.primaryText)
-
-            Spacer()
-
-            if !isFutureDate(selectedDate) {
-                Button {
-                    showAddEvent = true
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22, weight: .regular, design: .default))
-                        .foregroundStyle(AppTheme.accent)
-                }
-                .buttonStyle(.plain)
-            }
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private var emptyEventsState: some View {
         VStack(spacing: 10) {
-            Spacer()
             Text("❤️")
                 .font(.system(size: 22, weight: .regular, design: .default))
             Text("Нет событий")
                 .font(AppTheme.captionFont)
                 .foregroundStyle(AppTheme.secondaryText)
-            Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 20)
+        .padding(.bottom, 12)
     }
 
     private var eventsList: some View {
-        List {
+        LazyVStack(spacing: 10) {
             ForEach(selectedDayEvents) { event in
                 Button {
                     selectedEvent = event
@@ -250,9 +251,7 @@ struct CalendarView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+                .padding(.horizontal, 20)
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         eventPendingDeletion = event
@@ -264,8 +263,6 @@ struct CalendarView: View {
                 }
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .padding(.top, 11)
     }
 
@@ -550,14 +547,7 @@ private struct CalendarEventRow: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(AppTheme.cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
-        )
+        .glassCardSurface(cornerRadius: 20)
     }
 }
 
@@ -602,7 +592,7 @@ private extension Calendar {
 }
 
 #Preview {
-    CalendarView()
+    CalendarView(gradientStart: .top, gradientEnd: .bottomTrailing)
         .environmentObject(EventStore())
         .environmentObject(AuthService())
         .environmentObject(UserService())

@@ -77,7 +77,40 @@ extension Color {
     }
 }
 
+struct AmbientGlowBackground: View {
+    var startPoint: UnitPoint = .top
+    var endPoint: UnitPoint = .bottomTrailing
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+
+            LinearGradient(
+                colors: [
+                    Color(hex: "#FF3B6F").opacity(0.18),
+                    Color(hex: "#FF3B6F").opacity(0.05),
+                    Color.clear,
+                ],
+                startPoint: startPoint,
+                endPoint: endPoint
+            )
+            .ignoresSafeArea()
+        }
+    }
+}
+
 extension View {
+    func ambientMainScreen(
+        gradientStart: UnitPoint = .top,
+        gradientEnd: UnitPoint = .bottomTrailing
+    ) -> some View {
+        ZStack {
+            AmbientGlowBackground(startPoint: gradientStart, endPoint: gradientEnd)
+            self
+        }
+    }
+
   @ViewBuilder
   func appLargeNavigationTitle() -> some View {
     Group {
@@ -110,5 +143,26 @@ extension View {
       RoundedRectangle(cornerRadius: cornerRadius)
         .stroke(AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
     )
+  }
+
+  func glassCardSurface(cornerRadius: CGFloat = 20) -> some View {
+    background(Color.white.opacity(0.07))
+      .cornerRadius(cornerRadius)
+      .overlay(
+        RoundedRectangle(cornerRadius: cornerRadius)
+          .stroke(
+            LinearGradient(
+              colors: [
+                Color.white.opacity(0.18),
+                Color.white.opacity(0.03),
+                Color.white.opacity(0.08),
+                Color.white.opacity(0.03),
+              ],
+              startPoint: .topLeading,
+              endPoint: .bottomTrailing
+            ),
+            lineWidth: 1
+          )
+      )
   }
 }

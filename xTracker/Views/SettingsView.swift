@@ -13,6 +13,8 @@ struct SettingsView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var userService: UserService
+    let gradientStart: UnitPoint
+    let gradientEnd: UnitPoint
 
     @State private var nameDraft: String = SettingsStore.userName
     @State private var isEditingName = false
@@ -34,20 +36,22 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                profileHeader
-                    .padding(.top, 16)
-                partnerCard
+            ZStack {
+                VStack(alignment: .leading, spacing: 0) {
+                    profileHeader
+                        .padding(.top, 16)
+                    partnerCard
 
-                deleteAllDataButton
-                    .padding(.top, 24)
+                    deleteAllDataButton
+                        .padding(.top, 24)
+                }
+                .padding(.horizontal, AppTheme.screenHorizontalPadding)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .padding(.horizontal, AppTheme.screenHorizontalPadding)
-            .padding(.bottom, 24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(AppTheme.background)
+            .ambientMainScreen(gradientStart: gradientStart, gradientEnd: gradientEnd)
             .navigationTitle("Настройки")
-            .appLargeNavigationTitle()
+            .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $showPartnerSheet) {
@@ -599,7 +603,7 @@ private struct SettingsGroup<Content: View>: View {
             content
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .appCardSurface(cornerRadius: 16)
+                .glassCardSurface(cornerRadius: 20)
         }
     }
 }
@@ -667,7 +671,7 @@ private struct PartnerProfileRow: View {
 }
 
 #Preview {
-    SettingsView()
+    SettingsView(gradientStart: .top, gradientEnd: .bottomTrailing)
         .environmentObject(AuthService())
         .environmentObject(UserService())
         .environmentObject(EventStore())

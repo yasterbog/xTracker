@@ -32,9 +32,7 @@ struct EventDetailView: View {
                 .background(AppTheme.background)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { detailToolbar }
-                .toolbarBackground(AppTheme.background, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarColorScheme(.dark, for: .navigationBar)
+                .toolbarBackground(.hidden, for: .navigationBar)
                 .sheet(isPresented: $showEditSheet, content: editSheetContent)
                 .alert("Удалить событие?", isPresented: $showDeleteConfirmation) {
                     deleteAlertActions
@@ -81,6 +79,7 @@ struct EventDetailView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
+                    .foregroundColor(.white)
             }
         }
 
@@ -90,6 +89,7 @@ struct EventDetailView: View {
                     showEditSheet = true
                 } label: {
                     Image(systemName: "pencil")
+                        .foregroundColor(.white)
                 }
             }
         }
@@ -321,7 +321,7 @@ private struct DetailCard<Content: View>: View {
         }
         .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appCardSurface(cornerRadius: AppTheme.cardCornerRadius)
+        .glassCardSurface(cornerRadius: 20)
     }
 }
 

@@ -206,7 +206,7 @@ struct AddEventView: View {
                     .font(AppTheme.bodyFont)
                     .foregroundStyle(AppTheme.primaryText)
                     .padding(12)
-                .appCardSurface(cornerRadius: AppTheme.compactCardCornerRadius)
+                    .glassCardSurface(cornerRadius: AppTheme.compactCardCornerRadius)
                     .onChange(of: notes) { newValue in
                         if newValue.count > notesLimit {
                             notes = String(newValue.prefix(notesLimit))
@@ -323,7 +323,7 @@ private struct FormSection<Content: View>: View {
         }
         .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appCardSurface(cornerRadius: AppTheme.cardCornerRadius)
+        .glassCardSurface(cornerRadius: 20)
     }
 }
 
@@ -334,12 +334,12 @@ private struct ToggleRowCard<Content: View>: View {
         content
         .padding(AppTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appCardSurface(cornerRadius: AppTheme.cardCornerRadius)
+        .glassCardSurface(cornerRadius: 20)
     }
 }
 
 private enum AddEventCardStyle {
-    static let unselectedBackground = Color(hex: "#1A1A1A")
+    static let unselectedBackground = Color.white.opacity(0.07)
     static let unselectedLabel = Color(hex: "#C0C0C0")
 }
 

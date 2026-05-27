@@ -560,7 +560,8 @@ private struct MonthlyEventsLineChart: View {
     let dataPoints: [(label: String, count: Int)]
 
     private let lineColor = Color(hex: "#FF3B6F")
-    private let chartHeight: CGFloat = 140
+    private let chartHeight: CGFloat = 160
+    private let chartVerticalPadding: CGFloat = 16
     private let gridLineCount = 4
 
     private var hasData: Bool {
@@ -646,12 +647,17 @@ private struct MonthlyEventsLineChart: View {
         }
     }
 
+    private func chartPlotHeight(for size: CGSize) -> CGFloat {
+        max(size.height - chartVerticalPadding * 2, 0)
+    }
+
     private func drawGridLines(context: inout GraphicsContext, size: CGSize) {
         let dashStyle = StrokeStyle(lineWidth: 1, lineCap: .round, dash: [5, 5])
         let gridColor = Color.white.opacity(0.08)
+        let plotHeight = chartPlotHeight(for: size)
 
         for lineIndex in 0..<gridLineCount {
-            let y = size.height * CGFloat(lineIndex) / CGFloat(gridLineCount - 1)
+            let y = chartVerticalPadding + plotHeight * CGFloat(lineIndex) / CGFloat(gridLineCount - 1)
             var path = Path()
             path.move(to: CGPoint(x: 0, y: y))
             path.addLine(to: CGPoint(x: size.width, y: y))
@@ -661,35 +667,42 @@ private struct MonthlyEventsLineChart: View {
 
     private func smoothLinePath(points: [CGPoint]) -> Path {
         var path = Path()
-        guard let first = points.first else { return path }
-
-        if points.count == 1 {
-            path.move(to: first)
+        guard points.count > 1 else {
+            if let first = points.first {
+                path.move(to: first)
+            }
             return path
         }
 
-        path.move(to: first)
+        path.move(to: points[0])
+
         for index in 1..<points.count {
             let previous = points[index - 1]
             let current = points[index]
-            let control = CGPoint(
-                x: (previous.x + current.x) / 2,
-                y: (previous.y + current.y) / 2
+            let controlPoint1 = CGPoint(
+                x: previous.x + (current.x - previous.x) / 3,
+                y: previous.y
             )
-            path.addQuadCurve(to: current, control: control)
+            let controlPoint2 = CGPoint(
+                x: current.x - (current.x - previous.x) / 3,
+                y: current.y
+            )
+            path.addCurve(to: current, control1: controlPoint1, control2: controlPoint2)
         }
+
         return path
     }
 
     private func chartPoints(in size: CGSize) -> [CGPoint] {
         guard !dataPoints.isEmpty else { return [] }
 
+        let plotHeight = chartPlotHeight(for: size)
         let horizontalStep = dataPoints.count > 1 ? size.width / CGFloat(dataPoints.count - 1) : 0
 
         return dataPoints.enumerated().map { index, point in
             let x = dataPoints.count > 1 ? CGFloat(index) * horizontalStep : size.width / 2
             let normalized = CGFloat(point.count) / CGFloat(maxCount)
-            let y = size.height - normalized * size.height
+            let y = chartVerticalPadding + plotHeight * (1 - normalized)
             return CGPoint(x: x, y: y)
         }
     }

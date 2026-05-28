@@ -78,15 +78,6 @@ struct CalendarView: View {
             .navigationTitle(currentMonthYearString)
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showAddEvent = true }) {
-                        Image(systemName: "plus")
-                            .foregroundColor(.white)
-                            .fontWeight(.semibold)
-                    }
-                }
-            }
         }
         .sheet(isPresented: $showAddEvent) {
             AddEventView(prefilledDate: selectedDate)
@@ -209,53 +200,50 @@ struct CalendarView: View {
     private var eventsSection: some View {
         VStack(spacing: 0) {
             selectedDayHeader
-                .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 4)
 
-            if selectedDayEvents.isEmpty {
-                emptyEventsState
-                    .id(selectedDate)
-                    .transition(.opacity)
-            } else {
+            if !selectedDayEvents.isEmpty {
                 eventsList
                     .id(selectedDate)
                     .transition(.opacity)
             }
         }
-        .padding(.horizontal, 0)
+        .padding(.horizontal, 20)
         .animation(.easeInOut(duration: 0.2), value: selectedDate)
     }
 
     private var selectedDayHeader: some View {
-        HStack {
+        HStack(alignment: .center, spacing: 12) {
             Text(CalendarFormatters.selectedDayHeader(for: selectedDate, calendar: calendar))
                 .font(.system(size: 16, weight: .semibold, design: .default))
                 .foregroundStyle(AppTheme.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            addEventButton
         }
     }
 
-    private var emptyEventsState: some View {
-        VStack {
-            Spacer()
-
-            VStack(spacing: 12) {
-                Image("heart_fill")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 24, height: 24)
-                    .foregroundColor(Color(hex: "#FF3B6F"))
-
-                Text("Нет событий")
-                    .foregroundColor(.gray)
-                    .font(.system(size: 15))
+    private var addEventButton: some View {
+        Button {
+            showAddEvent = true
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .medium))
+                Text("Добавить")
+                    .font(.system(size: 13, weight: .medium))
             }
-
-            Spacer()
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.07))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(GlassCardMetrics.borderGradient, lineWidth: 1)
+            )
         }
-        .frame(maxWidth: .infinity, minHeight: 180)
+        .buttonStyle(.plain)
     }
 
     private var eventsList: some View {
@@ -281,12 +269,13 @@ struct CalendarView: View {
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDisabled(true)
+        .applyListHorizontalContentMarginsZero()
         .frame(height: CGFloat(selectedDayEvents.count) * 100)
         .padding(.top, 8)
     }
@@ -504,22 +493,33 @@ private struct CalendarDayCell: View {
         return AppTheme.primaryText
     }
 
+    private static let eventHeartColor = Color(hex: "#FF3B6F")
+
     @ViewBuilder
     private var eventIndicator: some View {
         switch eventCount {
         case 0:
             Color.clear
-        case 1, 2:
-            Image("heart_fill")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .foregroundColor(Color(hex: "#FF3B6F"))
-                .frame(width: 10, height: 10)
+        case 1:
+            eventHeart
+        case 2:
+            HStack(spacing: 3) {
+                eventHeart
+                eventHeart
+            }
         default:
             Text("🔥")
                 .font(.system(size: 9, weight: .regular, design: .default))
         }
+    }
+
+    private var eventHeart: some View {
+        Image("heart_fill")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .foregroundColor(Self.eventHeartColor)
+            .frame(width: 9, height: 9)
     }
 }
 
@@ -607,6 +607,17 @@ private extension Calendar {
     func startOfMonth(for date: Date) -> Date {
         let components = dateComponents([.year, .month], from: date)
         return self.date(from: components) ?? date
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func applyListHorizontalContentMarginsZero() -> some View {
+        if #available(iOS 17.0, *) {
+            contentMargins(.horizontal, 0, for: .scrollContent)
+        } else {
+            self
+        }
     }
 }
 

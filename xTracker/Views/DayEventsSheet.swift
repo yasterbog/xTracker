@@ -86,7 +86,7 @@ private struct EventRowView: View {
     let timeFormatter: DateFormatter
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Text(timeFormatter.string(from: event.date))
                 .font(.system(size: 16, weight: .regular, design: .default))
                 .foregroundStyle(AppTheme.accent)
@@ -94,8 +94,11 @@ private struct EventRowView: View {
 
             Text(event.activities.map(\.emoji).joined(separator: " "))
                 .font(.system(size: 20, weight: .regular, design: .default))
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
+            if event.hasNotes {
+                EventNotesIndicator()
+            }
         }
         .padding(.vertical, 4)
     }

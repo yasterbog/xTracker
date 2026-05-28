@@ -5,8 +5,9 @@
 
 import SwiftUI
 
-private struct SheetInlineHeaderModifier: ViewModifier {
+private struct SheetInlineHeaderModifier<Trailing: View>: ViewModifier {
     let title: String
+    @ViewBuilder let trailing: () -> Trailing
     @Environment(\.dismiss) private var dismiss
 
     func body(content: Content) -> some View {
@@ -14,7 +15,7 @@ private struct SheetInlineHeaderModifier: ViewModifier {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         dismiss()
                     } label: {
@@ -22,12 +23,25 @@ private struct SheetInlineHeaderModifier: ViewModifier {
                     }
                     .foregroundColor(.gray)
                 }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    trailing()
+                }
             }
     }
 }
 
 extension View {
     func sheetInlineHeader(_ title: String) -> some View {
-        modifier(SheetInlineHeaderModifier(title: title))
+        modifier(SheetInlineHeaderModifier(title: title) {
+            EmptyView()
+        })
+    }
+
+    func sheetInlineHeader<Trailing: View>(
+        _ title: String,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) -> some View {
+        modifier(SheetInlineHeaderModifier(title: title, trailing: trailing))
     }
 }

@@ -546,9 +546,17 @@ private struct CalendarEventRow: View {
             )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(Self.timeFormatter.string(from: event.date))
-                    .font(.system(size: 15, weight: .medium, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
+                HStack(alignment: .center, spacing: 8) {
+                    Text(Self.timeFormatter.string(from: event.date))
+                        .font(.system(size: 15, weight: .medium, design: .default))
+                        .foregroundStyle(AppTheme.primaryText)
+
+                    Spacer(minLength: 0)
+
+                    if event.hasNotes {
+                        EventNotesIndicator()
+                    }
+                }
 
                 HStack(spacing: 4) {
                     ForEach(event.activities) { activity in

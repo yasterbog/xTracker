@@ -59,16 +59,17 @@ struct AddEventView: View {
                     toysSection
                     finishSection
                     notesSection
-                    createButton
-                        .padding(.top, 8)
                 }
                 .padding(.horizontal, AppTheme.screenHorizontalPadding)
                 .padding(.vertical, 16)
-                .padding(.bottom, 24)
+                .padding(.bottom, 88)
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollIndicators(.hidden)
             .background(AppTheme.background)
+            .overlay(alignment: .bottomTrailing) {
+                floatingSaveButton
+            }
             .sheetInlineHeader(isEditMode ? "Редактировать" : "Новое событие")
         }
         .preferredColorScheme(.dark)
@@ -199,11 +200,19 @@ struct AddEventView: View {
         }
     }
 
+    private var floatingSaveButton: some View {
+        createButton
+            .padding(.trailing, AppTheme.screenHorizontalPadding)
+            .padding(.bottom, 12)
+            .shadow(color: Color.black.opacity(0.45), radius: 20, x: 0, y: 10)
+    }
+
     private var createButton: some View {
         PrimaryActionButton(
             title: isEditMode ? "Сохранить" : "Создать",
             isEnabled: canSave,
             isLoading: isSaving,
+            expandsHorizontally: false,
             action: saveAndDismiss
         )
     }

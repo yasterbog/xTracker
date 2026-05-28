@@ -30,7 +30,7 @@ struct EventDetailView: View {
             detailContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(AppTheme.background)
-                .sheetInlineHeader("Событие")
+                .sheetInlineHeader("Событие", trailing: eventDetailHeaderTrailing)
                 .sheet(isPresented: $showEditSheet, content: editSheetContent)
                 .alert("Удалить событие?", isPresented: $showDeleteConfirmation) {
                     deleteAlertActions
@@ -51,12 +51,28 @@ struct EventDetailView: View {
         if let event {
             EventDetailScrollContent(
                 event: event,
-                creatorProfile: creatorProfile(for: event),
-                onEditTapped: { showEditSheet = true },
-                onDeleteTapped: { showDeleteConfirmation = true }
+                creatorProfile: creatorProfile(for: event)
             )
         } else {
             emptyStateView
+        }
+    }
+
+    @ViewBuilder
+    private func eventDetailHeaderTrailing() -> some View {
+        if event != nil {
+            Menu {
+                Button("Редактировать") {
+                    showEditSheet = true
+                }
+                Button("Удалить событие", role: .destructive) {
+                    showDeleteConfirmation = true
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold, design: .default))
+                    .foregroundColor(.gray)
+            }
         }
     }
 
@@ -121,8 +137,6 @@ struct EventDetailView: View {
 private struct EventDetailScrollContent: View {
     let event: Event
     let creatorProfile: UserAvatarProfile
-    let onEditTapped: () -> Void
-    let onDeleteTapped: () -> Void
 
     var body: some View {
         ScrollView {
@@ -135,8 +149,6 @@ private struct EventDetailScrollContent: View {
                 finishSection
                 femaleOrgasmSection
                 notesSection
-                editButton
-                deleteButton
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
@@ -245,15 +257,6 @@ private struct EventDetailScrollContent: View {
         }
     }
 
-    private var editButton: some View {
-        PrimaryActionButton(title: "Редактировать", action: onEditTapped)
-            .padding(.top, 8)
-    }
-
-    private var deleteButton: some View {
-        DestructionActionButton(title: "Удалить событие", action: onDeleteTapped)
-            .padding(.top, 8)
-    }
 }
 
 // MARK: - Formatters

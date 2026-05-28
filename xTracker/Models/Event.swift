@@ -16,4 +16,8 @@ struct Event: Identifiable, Codable {
     var toys: [ToyType]
     var notes: String
     var createdBy: String
+
+    var hasNotes: Bool {
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 }

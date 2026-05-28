@@ -522,36 +522,15 @@ private struct PeriodOptionsSheet: View {
 
                 Spacer(minLength: 0)
 
-                Button {
+                PrimaryActionButton(title: "Применить") {
                     onApplyCustom()
                     dismiss()
-                } label: {
-                    Text("Применить")
-                        .font(.system(size: 16, weight: .semibold, design: .default))
-                        .foregroundStyle(AppTheme.primaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(AppTheme.accent)
-                        )
                 }
-                .buttonStyle(.plain)
             }
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(AppTheme.background)
-            .navigationTitle("Период")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                }
-            }
+            .sheetInlineHeader("Период")
         }
         .preferredColorScheme(.dark)
     }
@@ -603,36 +582,15 @@ private struct CustomPeriodSheet: View {
 
                 Spacer(minLength: 0)
 
-                Button {
+                PrimaryActionButton(title: "Применить") {
                     onApply()
                     dismiss()
-                } label: {
-                    Text("Применить")
-                        .font(.system(size: 16, weight: .semibold, design: .default))
-                        .foregroundStyle(AppTheme.primaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color(hex: "#FF3B6F"))
-                        )
                 }
-                .buttonStyle(.plain)
             }
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(AppTheme.background)
-            .navigationTitle("Период")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                }
-            }
+            .sheetInlineHeader("Период")
         }
         .preferredColorScheme(.dark)
     }

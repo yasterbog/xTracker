@@ -59,37 +59,17 @@ struct AddEventView: View {
                     toysSection
                     finishSection
                     notesSection
+                    createButton
+                        .padding(.top, 8)
                 }
                 .padding(.horizontal, AppTheme.screenHorizontalPadding)
                 .padding(.vertical, 16)
+                .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 12)
-            }
             .scrollIndicators(.hidden)
             .background(AppTheme.background)
-            .navigationTitle(isEditMode ? "Редактировать" : "Новое событие")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .foregroundColor(.gray)
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: saveAndDismiss) {
-                        Image(systemName: "checkmark")
-                            .foregroundColor(saveButtonTextColor)
-                            .animation(.easeInOut(duration: 0.2), value: selectedActivities.isEmpty)
-                    }
-                    .disabled(!canSave || isSaving)
-                }
-            }
+            .sheetInlineHeader(isEditMode ? "Редактировать" : "Новое событие")
         }
         .preferredColorScheme(.dark)
     }
@@ -210,6 +190,7 @@ struct AddEventView: View {
                             notes = String(newValue.prefix(notesLimit))
                         }
                     }
+                    .addEventInsetFieldStyle()
 
                 Text("\(notes.count)/\(notesLimit)")
                     .font(AppTheme.captionFont)
@@ -218,14 +199,19 @@ struct AddEventView: View {
         }
     }
 
+    private var createButton: some View {
+        PrimaryActionButton(
+            title: isEditMode ? "Сохранить" : "Создать",
+            isEnabled: canSave,
+            isLoading: isSaving,
+            action: saveAndDismiss
+        )
+    }
+
     // MARK: - Helpers
 
     private var canSave: Bool {
         !selectedActivities.isEmpty && !isSaving
-    }
-
-    private var saveButtonTextColor: Color {
-        selectedActivities.isEmpty ? .gray : AppTheme.accent
     }
 
     private static func date(fromDay day: Date, keepingTimeFrom timeSource: Date) -> Date {
@@ -337,6 +323,21 @@ private struct ToggleRowCard<Content: View>: View {
 private enum AddEventCardStyle {
     static let unselectedBackground = Color.white.opacity(0.07)
     static let unselectedLabel = Color(hex: "#C0C0C0")
+}
+
+private extension View {
+    func addEventInsetFieldStyle() -> some View {
+        padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
+                    .fill(AddEventCardStyle.unselectedBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
+                    .stroke(AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
+            )
+    }
 }
 
 private struct SelectableCard: View {

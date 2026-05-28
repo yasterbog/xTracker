@@ -30,9 +30,7 @@ struct EventDetailView: View {
             detailContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(AppTheme.background)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar { detailToolbar }
-                .toolbarBackground(.hidden, for: .navigationBar)
+                .sheetInlineHeader("Событие")
                 .sheet(isPresented: $showEditSheet, content: editSheetContent)
                 .alert("Удалить событие?", isPresented: $showDeleteConfirmation) {
                     deleteAlertActions
@@ -54,6 +52,7 @@ struct EventDetailView: View {
             EventDetailScrollContent(
                 event: event,
                 creatorProfile: creatorProfile(for: event),
+                onEditTapped: { showEditSheet = true },
                 onDeleteTapped: { showDeleteConfirmation = true }
             )
         } else {
@@ -69,29 +68,6 @@ struct EventDetailView: View {
 
             Text("Нет событий")
                 .foregroundColor(.gray)
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var detailToolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .foregroundColor(.white)
-            }
-        }
-
-        ToolbarItem(placement: .navigationBarTrailing) {
-            if event != nil {
-                Button {
-                    showEditSheet = true
-                } label: {
-                    Image(systemName: "pencil")
-                        .foregroundColor(.white)
-                }
-            }
         }
     }
 
@@ -145,6 +121,7 @@ struct EventDetailView: View {
 private struct EventDetailScrollContent: View {
     let event: Event
     let creatorProfile: UserAvatarProfile
+    let onEditTapped: () -> Void
     let onDeleteTapped: () -> Void
 
     var body: some View {
@@ -158,6 +135,7 @@ private struct EventDetailScrollContent: View {
                 finishSection
                 femaleOrgasmSection
                 notesSection
+                editButton
                 deleteButton
             }
             .padding(.horizontal, 16)
@@ -267,20 +245,14 @@ private struct EventDetailScrollContent: View {
         }
     }
 
+    private var editButton: some View {
+        PrimaryActionButton(title: "Редактировать", action: onEditTapped)
+            .padding(.top, 8)
+    }
+
     private var deleteButton: some View {
-        Button(action: onDeleteTapped) {
-            Text("Удалить событие")
-                .font(.system(size: 16, weight: .semibold, design: .default))
-                .foregroundStyle(.red)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.red.opacity(0.15))
-                )
-        }
-        .buttonStyle(.plain)
-        .padding(.top, 8)
+        DestructionActionButton(title: "Удалить событие", action: onDeleteTapped)
+            .padding(.top, 8)
     }
 }
 

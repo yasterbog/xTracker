@@ -250,15 +250,9 @@ struct SettingsView: View {
     }
 
     private var deleteAllDataButton: some View {
-        Button {
+        DestructionActionButton(title: "Удалить все данные") {
             showDeleteConfirmation = true
-        } label: {
-            Text("Удалить все данные")
-                .font(AppTheme.bodyFont)
-                .foregroundStyle(.red)
-                .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Actions
@@ -391,62 +385,44 @@ private struct ProfileEditSheet: View {
         !trimmedName.isEmpty
     }
 
-    private var saveButtonColor: Color {
-        canSave ? Color(hex: "#FF3B6F") : .gray
-    }
-
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    EditableAvatarView(
-                        image: selectedImage,
-                        avatarBase64: avatarBase64,
-                        avatarURL: avatarURL,
-                        name: trimmedName.isEmpty ? SettingsStore.defaultUserName : trimmedName,
-                        size: SettingsView.profileAvatarSize,
-                        isLoading: uploadingAvatar,
-                        showsCameraOverlay: false
-                    )
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
-
-                ClearableTextField(
-                    placeholder: "Имя",
-                    text: $nameDraft,
-                    isFocused: $isNameFocused
-                )
-
-                Spacer()
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(AppTheme.background)
-            .navigationTitle("Редактировать профиль")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        EditableAvatarView(
+                            image: selectedImage,
+                            avatarBase64: avatarBase64,
+                            avatarURL: avatarURL,
+                            name: trimmedName.isEmpty ? SettingsStore.defaultUserName : trimmedName,
+                            size: SettingsView.profileAvatarSize,
+                            isLoading: uploadingAvatar,
+                            showsCameraOverlay: false
+                        )
                     }
-                    .foregroundColor(.gray)
-                }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        guard canSave else { return }
+                    ClearableTextField(
+                        placeholder: "Имя",
+                        text: $nameDraft,
+                        isFocused: $isNameFocused
+                    )
+
+                    PrimaryActionButton(title: "Сохранить", isEnabled: canSave) {
                         onSave(trimmedName, selectedAvatarData, selectedImage)
                         dismiss()
-                    } label: {
-                        Image(systemName: "checkmark")
-                            .foregroundColor(saveButtonColor)
                     }
-                    .disabled(!canSave)
+                    .padding(.top, 8)
                 }
+                .padding(.horizontal, AppTheme.screenHorizontalPadding)
+                .padding(.vertical, 16)
+                .padding(.bottom, 24)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .scrollIndicators(.hidden)
+            .background(AppTheme.background)
+            .sheetInlineHeader("Редактировать профиль")
         }
         .preferredColorScheme(.dark)
         .onChange(of: selectedPhotoItem) { newItem in

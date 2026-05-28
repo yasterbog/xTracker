@@ -50,26 +50,28 @@ struct AddEventView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.cardSpacing) {
-                    dateTimeSection
-                    activitiesSection
-                    protectionSection
-                    femaleOrgasmSection
-                    toysSection
-                    finishSection
-                    notesSection
+            ZStack(alignment: .bottomTrailing) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: AppTheme.cardSpacing) {
+                        dateTimeSection
+                        activitiesSection
+                        protectionSection
+                        femaleOrgasmSection
+                        toysSection
+                        finishSection
+                        notesSection
+                    }
+                    .padding(.horizontal, AppTheme.screenHorizontalPadding)
+                    .padding(.vertical, 16)
+                    .padding(.bottom, 88)
                 }
-                .padding(.horizontal, AppTheme.screenHorizontalPadding)
-                .padding(.vertical, 16)
-                .padding(.bottom, 88)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .scrollIndicators(.hidden)
-            .background(AppTheme.background)
-            .overlay(alignment: .bottomTrailing) {
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+                .scrollIndicators(.hidden)
+
                 floatingSaveButton
             }
+            .background(AppTheme.background)
             .sheetInlineHeader(isEditMode ? "Редактировать" : "Новое событие")
         }
         .preferredColorScheme(.dark)
@@ -202,9 +204,9 @@ struct AddEventView: View {
 
     private var floatingSaveButton: some View {
         createButton
+            .primaryActionButtonFloatingShadow()
             .padding(.trailing, AppTheme.screenHorizontalPadding)
             .padding(.bottom, 12)
-            .shadow(color: Color.black.opacity(0.45), radius: 20, x: 0, y: 10)
     }
 
     private var createButton: some View {

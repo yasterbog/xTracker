@@ -237,11 +237,8 @@ struct CalendarView: View {
             .foregroundStyle(Color.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color.white.opacity(0.07))
+            .background(AppTheme.subtleSurfaceBackground)
             .clipShape(Capsule())
-            .overlay(
-                Capsule().stroke(GlassCardMetrics.borderGradient, lineWidth: 1)
-            )
         }
         .buttonStyle(.plain)
     }
@@ -396,18 +393,14 @@ private struct MonthlyActivityChip: View {
                     .font(.system(size: 14, weight: .regular, design: .default))
 
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold, design: .default))
+                    .font(.system(size: 13, weight: .medium, design: .default))
                     .foregroundStyle(isSelected ? Color.white : AppTheme.primaryText)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
             .background(
                 Capsule()
-                    .fill(isSelected ? AppTheme.accent : AppTheme.cardBackground)
-            )
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? AppTheme.accent : AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
+                    .fill(isSelected ? AppTheme.accent : AppTheme.subtleSurfaceBackground)
             )
         }
         .buttonStyle(.plain)
@@ -574,7 +567,7 @@ private struct CalendarEventRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
         .padding(.vertical, 18)
-        .glassCardChrome()
+        .eventCardChrome()
     }
 }
 

@@ -578,7 +578,7 @@ private struct SettingsGroup<Content: View>: View {
 
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .glassCard()
+                .subtleSurfaceCard()
         }
     }
 }

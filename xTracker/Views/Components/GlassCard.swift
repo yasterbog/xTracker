@@ -41,6 +41,12 @@ extension View {
         modifier(GlassCardStyle(padding: padding))
     }
 
+    func subtleSurfaceCard(padding inset: CGFloat = 16) -> some View {
+        padding(inset)
+            .background(AppTheme.subtleSurfaceBackground)
+            .clipShape(GlassCardMetrics.shape)
+    }
+
     func glassSectionCard() -> some View {
         padding(.horizontal, 18)
             .padding(.vertical, 18)
@@ -53,6 +59,11 @@ extension View {
             .overlay(
                 GlassCardMetrics.shape.stroke(GlassCardMetrics.borderGradient, lineWidth: 1)
             )
+    }
+
+    func eventCardChrome() -> some View {
+        background(AppTheme.subtleSurfaceBackground)
+            .clipShape(GlassCardMetrics.shape)
     }
 
     func glassSelectableSurface(isSelected: Bool, selectedColor: Color = AppTheme.accent) -> some View {

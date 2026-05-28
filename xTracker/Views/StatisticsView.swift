@@ -760,24 +760,10 @@ private extension View {
     func statsGlassCardStyle() -> some View {
         let shape = RoundedRectangle(cornerRadius: StatsCardStyle.cornerRadius, style: .continuous)
 
-        return background(Color.white.opacity(0.07))
+        return background(AppTheme.subtleSurfaceBackground)
             .clipShape(shape)
-            .overlay(
-                shape.stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.18),
-                            Color.white.opacity(0.03),
-                            Color.white.opacity(0.08),
-                            Color.white.opacity(0.03),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-            )
     }
+
 }
 
 private struct StatsSectionCard<Content: View>: View {

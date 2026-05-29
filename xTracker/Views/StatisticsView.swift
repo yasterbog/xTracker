@@ -695,7 +695,7 @@ private struct MonthlyEventsLineChart: View {
 
     private func drawGridLines(context: inout GraphicsContext, size: CGSize) {
         let dashStyle = StrokeStyle(lineWidth: 1, lineCap: .round, dash: [5, 5])
-        let gridColor = Color.white.opacity(0.08)
+        let gridColor = AppTheme.subtleSurfaceBackground
         let plotHeight = chartPlotHeight(for: size)
 
         for lineIndex in 0..<gridLineCount {

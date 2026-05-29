@@ -332,7 +332,7 @@ private struct ToggleRowCard<Content: View>: View {
 }
 
 private enum AddEventCardStyle {
-    static let unselectedBackground = Color.white.opacity(0.07)
+    static let unselectedBackground = AppTheme.subtleSurfaceBackground
     static let unselectedLabel = Color(hex: "#C0C0C0")
 }
 

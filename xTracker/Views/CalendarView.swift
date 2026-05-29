@@ -15,7 +15,7 @@ struct CalendarView: View {
 
     @State private var anchorMonth = Calendar.current.startOfMonth(for: Date())
     @State private var monthOffset = 0
-    @State private var selectedDate = Calendar.current.startOfDay(for: Date())
+    @State private var selectedDate = CalendarView.initialSelectedDate
     @State private var showAddEvent = false
     @State private var selectedEvent: Event?
     @State private var eventToDelete: Event?
@@ -32,6 +32,13 @@ struct CalendarView: View {
         calendar.firstWeekday = 2
         return calendar
     }()
+
+    private static var initialSelectedDate: Date {
+        var calendar = Calendar.current
+        calendar.locale = Locale(identifier: "ru_RU")
+        calendar.firstWeekday = 2
+        return calendar.startOfDay(for: Date())
+    }
 
     private var selectedDayEvents: [Event] {
         let dayStart = calendar.startOfDay(for: selectedDate)
@@ -142,9 +149,9 @@ struct CalendarView: View {
                 if let day {
                     CalendarDayCell(
                         day: day,
+                        selectedDate: selectedDate,
+                        calendar: calendar,
                         isCurrentMonth: calendar.isDate(day, equalTo: month, toGranularity: .month),
-                        isToday: calendar.isDateInToday(day),
-                        isSelected: calendar.isDate(day, inSameDayAs: selectedDate),
                         isFuture: isFutureDate(day),
                         eventCount: displayEventCount(on: day)
                     ) {
@@ -156,6 +163,7 @@ struct CalendarView: View {
                 }
             }
         }
+        .id(selectedDate)
     }
 
     // MARK: - Monthly summary
@@ -300,7 +308,7 @@ struct CalendarView: View {
 
         for day in daysInMonth {
             if let date = calendar.date(byAdding: .day, value: day - 1, to: monthInterval.start) {
-                days.append(date)
+                days.append(calendar.startOfDay(for: date))
             }
         }
 
@@ -413,14 +421,34 @@ private struct MonthlyActivityChip: View {
 
 private struct CalendarDayCell: View {
     let day: Date
+    let selectedDate: Date
+    let calendar: Calendar
     let isCurrentMonth: Bool
-    let isToday: Bool
-    let isSelected: Bool
     let isFuture: Bool
     let eventCount: Int
     let onTap: () -> Void
 
-    private let calendar = Calendar.current
+    private var isToday: Bool {
+        calendar.isDateInToday(day)
+    }
+
+    private var isSelected: Bool {
+        calendar.isDate(day, inSameDayAs: selectedDate)
+    }
+
+    private var visualState: DayVisualState {
+        if isSelected && isToday { return .selectedToday }
+        if isSelected { return .selected }
+        if isToday { return .today }
+        return .normal
+    }
+
+    private enum DayVisualState: Equatable {
+        case normal
+        case today
+        case selected
+        case selectedToday
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -432,6 +460,7 @@ private struct CalendarDayCell: View {
                         .foregroundStyle(dayNumberColor)
                 }
                 .frame(width: 32, height: 32)
+                .animation(.easeInOut(duration: 0.15), value: visualState)
 
                 eventIndicator
                     .frame(height: 12)
@@ -446,20 +475,18 @@ private struct CalendarDayCell: View {
 
     @ViewBuilder
     private var dayBackground: some View {
-        if isSelected && isToday {
+        switch visualState {
+        case .selectedToday:
             Circle()
                 .fill(AppTheme.accent)
-        } else if isSelected {
+        case .selected:
             Circle()
                 .fill(Color.white)
-        } else if isToday {
+        case .today:
             Circle()
-                .fill(Color.clear)
-                .overlay(
-                    Circle()
-                        .inset(by: 1)
-                        .stroke(Color(hex: "#FF3B6F"), lineWidth: 2)
-                )
+                .strokeBorder(AppTheme.accent, lineWidth: 2)
+        case .normal:
+            EmptyView()
         }
     }
 
@@ -471,19 +498,20 @@ private struct CalendarDayCell: View {
     }
 
     private var dayNumberColor: Color {
-        if isSelected && isToday {
+        switch visualState {
+        case .selectedToday:
+            return AppTheme.primaryText
+        case .selected:
+            return Color.black
+        case .today, .normal:
+            if !isCurrentMonth {
+                return AppTheme.mutedDay
+            }
+            if isToday {
+                return AppTheme.accent
+            }
             return AppTheme.primaryText
         }
-        if isSelected {
-            return Color.black
-        }
-        if !isCurrentMonth {
-            return AppTheme.mutedDay
-        }
-        if isToday {
-            return AppTheme.accent
-        }
-        return AppTheme.primaryText
     }
 
     private static let eventHeartColor = Color(hex: "#FF3B6F")

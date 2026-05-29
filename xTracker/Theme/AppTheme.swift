@@ -12,7 +12,7 @@ enum AppTheme {
     static let secondaryText = Color.gray.opacity(0.5)
     static let sectionHeaderText = Color(hex: "#8A8A8E")
     static let cardBackground = Color(hex: "#121212")
-    static let subtleSurfaceBackground = Color.white.opacity(0.08)
+    static let subtleSurfaceBackground = Color.white.opacity(0.06)
     static let cardBorder = Color(hex: "#1F1F1F")
     static let cardBorderWidth: CGFloat = 1
     static let separator = Color.white.opacity(0.06)

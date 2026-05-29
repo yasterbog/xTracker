@@ -476,7 +476,7 @@ private struct ClearableTextField: View {
         .padding(.vertical, 13)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.08))
+                .fill(AppTheme.subtleSurfaceBackground)
         )
     }
 }

@@ -28,7 +28,7 @@ struct PartnerConnectSheet: View {
                     .padding()
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.08))
+                            .fill(AppTheme.subtleSurfaceBackground)
                     )
 
                 if let errorMessage = authService.connectionError {

@@ -7,6 +7,7 @@ import SwiftUI
 
 private struct SheetInlineHeaderModifier<Trailing: View>: ViewModifier {
     let title: String
+    let onClose: (() -> Void)?
     @ViewBuilder let trailing: () -> Trailing
     @Environment(\.dismiss) private var dismiss
 
@@ -17,7 +18,11 @@ private struct SheetInlineHeaderModifier<Trailing: View>: ViewModifier {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        dismiss()
+                        if let onClose {
+                            onClose()
+                        } else {
+                            dismiss()
+                        }
                     } label: {
                         Image(systemName: "xmark")
                     }
@@ -32,16 +37,17 @@ private struct SheetInlineHeaderModifier<Trailing: View>: ViewModifier {
 }
 
 extension View {
-    func sheetInlineHeader(_ title: String) -> some View {
-        modifier(SheetInlineHeaderModifier(title: title) {
+    func sheetInlineHeader(_ title: String, onClose: (() -> Void)? = nil) -> some View {
+        modifier(SheetInlineHeaderModifier(title: title, onClose: onClose) {
             EmptyView()
         })
     }
 
     func sheetInlineHeader<Trailing: View>(
         _ title: String,
+        onClose: (() -> Void)? = nil,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) -> some View {
-        modifier(SheetInlineHeaderModifier(title: title, trailing: trailing))
+        modifier(SheetInlineHeaderModifier(title: title, onClose: onClose, trailing: trailing))
     }
 }

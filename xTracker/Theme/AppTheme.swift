@@ -7,11 +7,11 @@ import SwiftUI
 import UIKit
 
 enum AppTheme {
-    static let background = Color.black
+    static let background = Color(hex: "#0F0F0F")
     static let primaryText = Color.white
     static let secondaryText = Color.gray.opacity(0.5)
     static let sectionHeaderText = Color(hex: "#8A8A8E")
-    static let cardBackground = Color(hex: "#121212")
+    static let cardBackground = Color(hex: "#0F0F0F")
     static let subtleSurfaceBackground = Color.white.opacity(0.06)
     static let cardBorder = Color(hex: "#1F1F1F")
     static let cardBorderWidth: CGFloat = 1
@@ -84,17 +84,21 @@ struct AmbientGlowBackground: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            AppTheme.background
                 .ignoresSafeArea()
 
             LinearGradient(
-                colors: [
-                    Color(hex: "#FF3B6F").opacity(0.14),
-                    Color(hex: "#FF3B6F").opacity(0.03),
-                    Color.clear,
+                stops: [
+                    .init(color: AppTheme.accent.opacity(0.28), location: 0),
+                    .init(color: AppTheme.accent.opacity(0.20), location: 0.08),
+                    .init(color: AppTheme.accent.opacity(0.12), location: 0.18),
+                    .init(color: AppTheme.accent.opacity(0.06), location: 0.32),
+                    .init(color: AppTheme.accent.opacity(0.03), location: 0.48),
+                    .init(color: AppTheme.accent.opacity(0.01), location: 0.68),
+                    .init(color: Color.clear, location: 1),
                 ],
                 startPoint: startPoint,
-                endPoint: endPoint
+                endPoint: .bottom
             )
             .ignoresSafeArea()
         }

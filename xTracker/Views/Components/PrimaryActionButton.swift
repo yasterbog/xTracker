@@ -10,6 +10,8 @@ enum PrimaryActionButtonMetrics {
     static let cornerRadius: CGFloat = 48
     static let compactHorizontalPadding: CGFloat = 24
     static let pressedOverlayOpacity: Double = 0.22
+    static let disabledFill = Color(hex: "#48484A")
+    static let disabledText = Color.white.opacity(0.55)
 
     static var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -23,12 +25,16 @@ struct PrimaryActionButton: View {
     var expandsHorizontally: Bool = true
     let action: () -> Void
 
+    private var isInteractive: Bool {
+        isEnabled && !isLoading
+    }
+
     var body: some View {
         Button(action: action) {
             buttonLabel
         }
-        .buttonStyle(PrimaryActionButtonStyle(isEnabled: isEnabled))
-        .disabled(!isEnabled || isLoading)
+        .buttonStyle(PrimaryActionButtonStyle(isEnabled: isEnabled, isLoading: isLoading))
+        .allowsHitTesting(isInteractive)
         .animation(.easeInOut(duration: 0.2), value: isEnabled)
     }
 
@@ -46,7 +52,7 @@ struct PrimaryActionButton: View {
                     .font(.system(size: 16, weight: .semibold, design: .default))
             }
         }
-        .foregroundStyle(AppTheme.primaryText)
+        .foregroundStyle(isEnabled && !isLoading ? AppTheme.primaryText : PrimaryActionButtonMetrics.disabledText)
         .padding(.horizontal, horizontalPadding)
         .frame(maxWidth: expandsHorizontally ? .infinity : nil)
         .frame(height: PrimaryActionButtonMetrics.height)
@@ -55,21 +61,30 @@ struct PrimaryActionButton: View {
 
 private struct PrimaryActionButtonStyle: ButtonStyle {
     let isEnabled: Bool
+    let isLoading: Bool
+
+    private var isInteractive: Bool {
+        isEnabled && !isLoading
+    }
+
+    private var usesAccentFill: Bool {
+        isEnabled
+    }
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background {
                 ZStack {
                     PrimaryActionButtonMetrics.shape
-                        .fill(isEnabled ? AppTheme.accent : Color.gray.opacity(0.35))
+                        .fill(usesAccentFill ? AppTheme.accent : PrimaryActionButtonMetrics.disabledFill)
 
-                    if configuration.isPressed, isEnabled {
+                    if configuration.isPressed, isInteractive {
                         PrimaryActionButtonMetrics.shape
                             .fill(Color.black.opacity(PrimaryActionButtonMetrics.pressedOverlayOpacity))
                     }
                 }
             }
-            .scaleEffect(configuration.isPressed && isEnabled ? 0.98 : 1)
+            .scaleEffect(configuration.isPressed && isInteractive ? 0.98 : 1)
             .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
     }
 }

@@ -148,33 +148,30 @@ struct StatisticsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                HStack(alignment: .center, spacing: 16) {
-                    Picker("", selection: $segmentedPeriod) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .center, spacing: 8) {
                         ForEach(SegmentedStatisticsPeriod.allCases) { period in
-                            Text(period.rawValue).tag(period)
+                            FilterChip(
+                                title: period.rawValue,
+                                isSelected: segmentedPeriod == period
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    segmentedPeriod = period
+                                    selectedPeriod = period.statisticsPeriod
+                                    customPeriodActive = false
+                                }
+                            }
                         }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: segmentedPeriod) { newPeriod in
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            selectedPeriod = newPeriod.statisticsPeriod
-                            customPeriodActive = false
-                        }
-                    }
 
-                    Button {
-                        customStartDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-                        customEndDate = Date()
-                        showPeriodOptionsSheet = true
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.white.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        ChipCircleButton(systemName: "ellipsis") {
+                            customStartDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+                            customEndDate = Date()
+                            showPeriodOptionsSheet = true
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .padding(.vertical, 2)
                 }
+                .chipScrollAllowsOverflow()
             }
         }
         .padding(.horizontal, 20)
@@ -544,6 +541,14 @@ private struct CustomPeriodSheet: View {
     let onApply: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var isStartPickerExpanded = false
+    @State private var isEndPickerExpanded = false
+
+    private var ruCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ru_RU")
+        return calendar
+    }
 
     var body: some View {
         NavigationStack {
@@ -553,30 +558,39 @@ private struct CustomPeriodSheet: View {
                         .font(.system(size: 16, weight: .semibold, design: .default))
                         .foregroundStyle(AppTheme.primaryText)
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Начало")
                             .font(AppTheme.captionFont)
                             .foregroundStyle(AppTheme.secondaryText)
 
-                        DatePicker("", selection: $startDate, in: ...endDate, displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .colorScheme(.dark)
-                            .tint(AppTheme.accent)
-                            .environment(\.locale, Locale(identifier: "ru_RU"))
+                        PickerChip(
+                            date: $startDate,
+                            mode: .date,
+                            chipTitle: EventDateFormatting.pillLabel(for: startDate, calendar: ruCalendar),
+                            isExpanded: $isStartPickerExpanded,
+                            maximumDate: endDate
+                        )
+                        .onChange(of: isStartPickerExpanded) { expanded in
+                            if expanded { isEndPickerExpanded = false }
+                        }
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Конец")
                             .font(AppTheme.captionFont)
                             .foregroundStyle(AppTheme.secondaryText)
 
-                        DatePicker("", selection: $endDate, in: startDate...Date(), displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .colorScheme(.dark)
-                            .tint(AppTheme.accent)
-                            .environment(\.locale, Locale(identifier: "ru_RU"))
+                        PickerChip(
+                            date: $endDate,
+                            mode: .date,
+                            chipTitle: EventDateFormatting.pillLabel(for: endDate, calendar: ruCalendar),
+                            isExpanded: $isEndPickerExpanded,
+                            minimumDate: startDate,
+                            maximumDate: Date()
+                        )
+                        .onChange(of: isEndPickerExpanded) { expanded in
+                            if expanded { isStartPickerExpanded = false }
+                        }
                     }
                 }
 

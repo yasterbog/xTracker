@@ -69,7 +69,7 @@ struct ContentView: View {
             let accentUIColor = UIColor(red: 255 / 255, green: 59 / 255, blue: 111 / 255, alpha: 1)
             appearance.configureWithDefaultBackground()
             appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
-            appearance.backgroundColor = UIColor.black.withAlphaComponent(0.35)
+            appearance.backgroundColor = UIColor(red: 15 / 255, green: 15 / 255, blue: 15 / 255, alpha: 0.35)
             appearance.stackedLayoutAppearance.normal.iconColor = UIColor.gray.withAlphaComponent(0.4)
             appearance.stackedLayoutAppearance.selected.iconColor = accentUIColor
             appearance.inlineLayoutAppearance.normal.iconColor = UIColor.gray.withAlphaComponent(0.4)

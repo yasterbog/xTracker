@@ -138,26 +138,38 @@ private struct EventDetailScrollContent: View {
     let event: Event
     let creatorProfile: UserAvatarProfile
 
+    private let sectionSpacing: CGFloat = 40
+
+    private var ruCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ru_RU")
+        return calendar
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: sectionSpacing) {
                 creatorSection
                 dateTimeSection
                 activitiesSection
                 protectionSection
-                toysSection
-                finishSection
                 femaleOrgasmSection
-                notesSection
+                finishSection
+                toysSection
+                if !event.notes.isEmpty {
+                    notesSection
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .padding(.horizontal, AppTheme.screenHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, 32)
         }
+        .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
     }
 
     private var creatorSection: some View {
-        DetailCard(title: "Добавил(а)") {
+        EventFormSection(title: "Добавил(а)") {
             HStack(spacing: 10) {
                 UserAvatarView(
                     avatarBase64: creatorProfile.avatarBase64,
@@ -170,19 +182,16 @@ private struct EventDetailScrollContent: View {
                     .font(.system(size: 16, weight: .semibold, design: .default))
                     .foregroundStyle(AppTheme.primaryText)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
         }
     }
 
     private var dateTimeSection: some View {
-        DetailCard(title: "Дата и время") {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(EventDetailFormatters.date.string(from: event.date))
-                Text(EventDetailFormatters.time.string(from: event.date))
-                    .font(.system(size: 20, weight: .semibold, design: .default))
-                    .foregroundStyle(AppTheme.accent)
-            }
+        EventFormSection(title: "Дата и время") {
+            Text(
+                "\(EventDateFormatting.pillLabel(for: event.date, calendar: ruCalendar)) · \(EventDetailFormatters.time.string(from: event.date))"
+            )
             .font(AppTheme.bodyFont)
             .foregroundStyle(AppTheme.primaryText)
         }
@@ -190,85 +199,107 @@ private struct EventDetailScrollContent: View {
 
     @ViewBuilder
     private var activitiesSection: some View {
-        DetailCard(title: "Активности") {
+        EventFormSection(title: "Активности") {
             if event.activities.isEmpty {
-                Text("Не указаны")
-                    .foregroundStyle(AppTheme.secondaryText)
+                Text("Не было")
+                    .font(AppTheme.bodyFont)
+                    .foregroundStyle(EventFormStyle.unselectedLabel)
             } else {
-                activitiesGrid
-            }
-        }
-    }
-
-    private var activitiesGrid: some View {
-        LazyVGrid(columns: EventDetailFormatters.twoColumns, spacing: 10) {
-            ForEach(event.activities) { activity in
-                ActivityDisplayCard(activity: activity)
+                LazyVGrid(columns: EventDetailFormatters.twoColumns, spacing: 12) {
+                    ForEach(event.activities) { activity in
+                        EventDetailDisplayCard(emoji: activity.emoji, title: activity.title)
+                    }
+                }
             }
         }
     }
 
     private var protectionSection: some View {
-        DetailCard(title: "Защита") {
-            BoolRow(label: "Использовалась защита", value: event.protection)
+        EventFormSection(title: "Использовалась защита") {
+            Text(event.protection ? "Да" : "Нет")
+                .font(AppTheme.bodyFont)
+                .foregroundStyle(event.protection ? AppTheme.primaryText : EventFormStyle.unselectedLabel)
+        }
+    }
+
+    private var femaleOrgasmSection: some View {
+        EventFormSection(title: "Она кончила 💫") {
+            Text(event.femaleOrgasm ? "Да" : "Нет")
+                .font(AppTheme.bodyFont)
+                .foregroundStyle(event.femaleOrgasm ? AppTheme.primaryText : EventFormStyle.unselectedLabel)
+        }
+    }
+
+    private var finishSection: some View {
+        EventFormSection(title: "Окончание") {
+            Text(event.finish.title)
+                .font(AppTheme.bodyFont)
+                .foregroundStyle(AppTheme.primaryText)
         }
     }
 
     @ViewBuilder
     private var toysSection: some View {
-        DetailCard(title: "Игрушки") {
+        EventFormSection(title: "Игрушки") {
             if event.toys.isEmpty {
                 Text("Не использовались")
-                    .foregroundStyle(AppTheme.secondaryText)
+                    .font(AppTheme.bodyFont)
+                    .foregroundStyle(EventFormStyle.unselectedLabel)
             } else {
-                toysGrid
+                LazyVGrid(columns: EventDetailFormatters.twoColumns, spacing: 12) {
+                    ForEach(event.toys) { toy in
+                        EventDetailDisplayCard(emoji: toy.emoji, title: toy.title)
+                    }
+                }
             }
-        }
-    }
-
-    private var toysGrid: some View {
-        LazyVGrid(columns: EventDetailFormatters.twoColumns, spacing: 10) {
-            ForEach(event.toys) { toy in
-                ToyDisplayCard(toy: toy)
-            }
-        }
-    }
-
-    private var finishSection: some View {
-        DetailCard(title: "Окончание") {
-            Text(event.finish.title)
-                .font(.system(size: 16, weight: .regular, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-        }
-    }
-
-    private var femaleOrgasmSection: some View {
-        DetailCard(title: "Она кончила") {
-            Text(event.femaleOrgasm ? "Да 💫" : "Нет")
-                .foregroundStyle(event.femaleOrgasm ? AppTheme.accent : AppTheme.primaryText)
         }
     }
 
     private var notesSection: some View {
-        DetailCard(title: "Заметки") {
-            Text(event.notes.isEmpty ? "—" : event.notes)
-                .foregroundStyle(event.notes.isEmpty ? AppTheme.secondaryText : AppTheme.primaryText)
+        EventFormSection(title: "Заметки") {
+            Text(event.notes)
+                .font(AppTheme.bodyFont)
+                .foregroundStyle(AppTheme.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+}
 
+// MARK: - Display Components
+
+private struct EventDetailDisplayCard: View {
+    let emoji: String
+    let title: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text(emoji)
+                .font(.system(size: 32, weight: .regular, design: .default))
+
+            Text(title)
+                .font(.system(size: 13, weight: .medium, design: .default))
+                .foregroundStyle(EventFormStyle.selectedLabel)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 90)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                .fill(EventFormStyle.selectedTintBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                        .strokeBorder(EventFormStyle.selectedBorderColor, lineWidth: 1)
+                )
+        )
+    }
 }
 
 // MARK: - Formatters
 
 private enum EventDetailFormatters {
-    static let date: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
-        formatter.dateFormat = "d MMMM yyyy"
-        return formatter
-    }()
-
     static let time: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ru_RU")
@@ -277,87 +308,9 @@ private enum EventDetailFormatters {
     }()
 
     static let twoColumns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
     ]
-}
-
-// MARK: - Components
-
-private struct DetailCard<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader(title)
-
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassSectionCard()
-    }
-}
-
-private struct BoolRow: View {
-    let label: String
-    let value: Bool
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .font(AppTheme.bodyFont)
-                .foregroundStyle(AppTheme.primaryText)
-            Spacer()
-            Text(value ? "Да" : "Нет")
-                .font(.system(size: 16, weight: .semibold, design: .default))
-                .foregroundStyle(value ? AppTheme.accent : AppTheme.secondaryText)
-        }
-    }
-}
-
-private struct ActivityDisplayCard: View {
-    let activity: ActivityType
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Text(activity.emoji)
-                .font(.system(size: 22, weight: .regular, design: .default))
-            Text(activity.title)
-                .font(AppTheme.captionFont)
-                .foregroundStyle(AppTheme.primaryText)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppTheme.accent.opacity(0.2))
-        )
-    }
-}
-
-private struct ToyDisplayCard: View {
-    let toy: ToyType
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Text(toy.emoji)
-                .font(.system(size: 22, weight: .regular, design: .default))
-            Text(toy.title)
-                .font(AppTheme.captionFont)
-                .foregroundStyle(AppTheme.primaryText)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.06))
-        )
-    }
 }
 
 #Preview {

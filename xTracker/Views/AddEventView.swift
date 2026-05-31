@@ -13,18 +13,26 @@ struct AddEventView: View {
 
     private let eventToEdit: Event?
     private let notesLimit = 500
+    private let sectionSpacing: CGFloat = 40
 
     @State private var date: Date
     @State private var selectedActivities: Set<ActivityType>
     @State private var protection: Bool
     @State private var femaleOrgasm: Bool
-    @State private var usesToys: Bool
     @State private var selectedToys: Set<ToyType>
     @State private var finish: FinishType
     @State private var notes: String
     @State private var isSaving = false
+    @State private var isDatePickerExpanded = false
+    @State private var isTimePickerExpanded = false
 
     private var isEditMode: Bool { eventToEdit != nil }
+
+    private var ruCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ru_RU")
+        return calendar
+    }
 
     init(eventToEdit: Event? = nil, prefilledDate: Date? = nil) {
         self.eventToEdit = eventToEdit
@@ -42,7 +50,6 @@ struct AddEventView: View {
         _selectedActivities = State(initialValue: Set(eventToEdit?.activities ?? [.sex]))
         _protection = State(initialValue: eventToEdit?.protection ?? false)
         _femaleOrgasm = State(initialValue: eventToEdit?.femaleOrgasm ?? false)
-        _usesToys = State(initialValue: !(eventToEdit?.toys.isEmpty ?? true))
         _selectedToys = State(initialValue: Set(eventToEdit?.toys ?? []))
         _finish = State(initialValue: eventToEdit?.finish ?? .condom)
         _notes = State(initialValue: eventToEdit?.notes ?? "")
@@ -52,17 +59,16 @@ struct AddEventView: View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: AppTheme.cardSpacing) {
+                    VStack(alignment: .leading, spacing: sectionSpacing) {
                         dateTimeSection
                         activitiesSection
-                        protectionSection
-                        femaleOrgasmSection
-                        toysSection
+                        detailsSection
                         finishSection
+                        toysSection
                         notesSection
                     }
                     .padding(.horizontal, AppTheme.screenHorizontalPadding)
-                    .padding(.vertical, 16)
+                    .padding(.top, 16)
                     .padding(.bottom, 88)
                 }
                 .scrollContentBackground(.hidden)
@@ -80,23 +86,42 @@ struct AddEventView: View {
     // MARK: - Sections
 
     private var dateTimeSection: some View {
-        FormSection(title: "Дата и время") {
-            DatePicker(
-                "",
-                selection: $date,
-                in: ...Date(),
-                displayedComponents: [.date, .hourAndMinute]
-            )
-            .datePickerStyle(.compact)
-            .labelsHidden()
-            .colorScheme(.dark)
-            .tint(AppTheme.accent)
-            .environment(\.locale, Locale(identifier: "ru_RU"))
+        VStack(alignment: .leading, spacing: 12) {
+            AppTheme.sectionHeader("Дата и время")
+
+            HStack(spacing: 10) {
+                PickerChip(
+                    date: $date,
+                    mode: .date,
+                    chipTitle: EventDateFormatting.pillLabel(for: date, calendar: ruCalendar),
+                    isExpanded: $isDatePickerExpanded,
+                    maximumDate: Date()
+                )
+                .onChange(of: isDatePickerExpanded) { expanded in
+                    if expanded { isTimePickerExpanded = false }
+                }
+
+                PickerChip(
+                    date: $date,
+                    mode: .time,
+                    chipTitle: Self.timeFormatter.string(from: date),
+                    isExpanded: $isTimePickerExpanded,
+                    maximumDate: Date()
+                )
+                .onChange(of: isTimePickerExpanded) { expanded in
+                    if expanded { isDatePickerExpanded = false }
+                }
+
+                Spacer(minLength: 0)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var activitiesSection: some View {
-        FormSection(title: "Активности") {
+        VStack(alignment: .leading, spacing: 12) {
+            AppTheme.sectionHeader("Активности")
+
             LazyVGrid(columns: Self.twoColumns, spacing: 12) {
                 ForEach(ActivityType.allCases) { activity in
                     SelectableCard(
@@ -109,67 +134,54 @@ struct AddEventView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var protectionSection: some View {
-        ToggleRowCard {
-            Toggle(isOn: $protection) {
-                Text("Использовалась защита")
-                    .font(AppTheme.bodyFont)
-                    .foregroundStyle(AppTheme.primaryText)
-            }
-            .tint(AppTheme.accent)
-        }
-    }
+    private var detailsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AppTheme.sectionHeader("Детали")
 
-    private var femaleOrgasmSection: some View {
-        ToggleRowCard {
-            Toggle(isOn: $femaleOrgasm) {
-                Text("Она кончила 💫")
-                    .font(AppTheme.bodyFont)
-                    .foregroundStyle(AppTheme.primaryText)
+            VStack(spacing: 12) {
+                AddEventDetailCheckboxRow(
+                    title: "Использовалась защита",
+                    isOn: $protection
+                )
+
+                AddEventDetailCheckboxRow(
+                    title: "Она кончила 💫",
+                    isOn: $femaleOrgasm
+                )
             }
-            .tint(AppTheme.accent)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var toysSection: some View {
-        ToggleRowCard {
-            VStack(alignment: .leading, spacing: 16) {
-                Toggle(isOn: $usesToys) {
-                    Text("Использовались игрушки?")
-                        .font(AppTheme.bodyFont)
-                        .foregroundStyle(AppTheme.primaryText)
-                }
-                .tint(AppTheme.accent)
-                .onChange(of: usesToys) { isOn in
-                    if !isOn {
-                        selectedToys.removeAll()
-                    }
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            AppTheme.sectionHeader("Игрушки")
 
-                if usesToys {
-                    LazyVGrid(columns: Self.twoColumns, spacing: 12) {
-                        ForEach(ToyType.allCases) { toy in
-                            SelectableCard(
-                                emoji: toy.emoji,
-                                title: toy.title,
-                                isSelected: selectedToys.contains(toy)
-                            ) {
-                                toggle(toy, in: &selectedToys)
-                            }
-                        }
+            LazyVGrid(columns: Self.twoColumns, spacing: 12) {
+                ForEach(ToyType.allCases) { toy in
+                    SelectableCard(
+                        emoji: toy.emoji,
+                        title: toy.title,
+                        isSelected: selectedToys.contains(toy)
+                    ) {
+                        toggle(toy, in: &selectedToys)
                     }
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var finishSection: some View {
-        FormSection(title: "Окончание") {
+        VStack(alignment: .leading, spacing: 12) {
+            AppTheme.sectionHeader("Окончание")
+
             FlowLayout(horizontalSpacing: 10, verticalSpacing: 10) {
                 ForEach(FinishType.allCases) { option in
-                    FinishPill(
+                    FilterChip(
                         title: option.title,
                         isSelected: finish == option
                     ) {
@@ -179,11 +191,14 @@ struct AddEventView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var notesSection: some View {
-        FormSection(title: "Заметки") {
-            VStack(alignment: .trailing, spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
+            AppTheme.sectionHeader("Заметки")
+
+            VStack(alignment: .trailing, spacing: 8) {
                 TextField("Заметки...", text: $notes, axis: .vertical)
                     .lineLimit(4...8)
                     .font(AppTheme.bodyFont)
@@ -193,13 +208,16 @@ struct AddEventView: View {
                             notes = String(newValue.prefix(notesLimit))
                         }
                     }
-                    .addEventInsetFieldStyle()
 
                 Text("\(notes.count)/\(notesLimit)")
                     .font(AppTheme.captionFont)
                     .foregroundStyle(notes.count >= notesLimit ? AppTheme.accent : AppTheme.secondaryText)
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(EventFormStyle.unselectedSurface)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var floatingSaveButton: some View {
@@ -225,6 +243,13 @@ struct AddEventView: View {
         !selectedActivities.isEmpty && !isSaving
     }
 
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
     private static func date(fromDay day: Date, keepingTimeFrom timeSource: Date) -> Date {
         let calendar = Calendar.current
         var components = calendar.dateComponents([.year, .month, .day], from: day)
@@ -242,7 +267,7 @@ struct AddEventView: View {
         guard canSave else { return }
 
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        let toys = usesToys ? Array(selectedToys) : []
+        let toys = Array(selectedToys)
         UXFeedback.mediumImpact()
         isSaving = true
 
@@ -301,53 +326,44 @@ struct AddEventView: View {
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12),
     ]
-
 }
 
 // MARK: - Subviews
 
-private struct FormSection<Content: View>: View {
+private struct AddEventDetailCheckboxRow: View {
     let title: String
-    @ViewBuilder let content: Content
+    @Binding var isOn: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader(title)
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            isOn.toggle()
+        } label: {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(AppTheme.bodyFont)
+                    .foregroundStyle(isOn ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
+                    .multilineTextAlignment(.leading)
 
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassSectionCard()
-    }
-}
+                Spacer(minLength: 8)
 
-private struct ToggleRowCard<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        content
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassSectionCard()
-    }
-}
-
-private enum AddEventCardStyle {
-    static let unselectedBackground = AppTheme.subtleSurfaceBackground
-    static let unselectedLabel = Color(hex: "#C0C0C0")
-}
-
-private extension View {
-    func addEventInsetFieldStyle() -> some View {
-        padding(12)
+                EventFormCheckbox(isOn: isOn)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                    .fill(AddEventCardStyle.unselectedBackground)
+                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                    .fill(isOn ? EventFormStyle.selectedTintBackground : EventFormStyle.surfaceBackground)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                    .stroke(AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
-            )
+            .overlay {
+                if isOn {
+                    RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                        .strokeBorder(EventFormStyle.selectedBorderColor, lineWidth: 1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -360,68 +376,49 @@ private struct SelectableCard: View {
     var body: some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.7)) {
                 action()
             }
         } label: {
-            VStack(spacing: 8) {
-                Text(emoji)
-                    .font(.system(size: 32, weight: .regular, design: .default))
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: 8) {
+                    Text(emoji)
+                        .font(.system(size: 32, weight: .regular, design: .default))
 
-                Text(title)
-                    .font(.system(size: 13, weight: .regular, design: .default))
-                    .foregroundStyle(isSelected ? AppTheme.primaryText : AddEventCardStyle.unselectedLabel)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 90)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                    .fill(isSelected ? AppTheme.accent : AddEventCardStyle.unselectedBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius)
-                    .stroke(isSelected ? AppTheme.accent : AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
-            )
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
-    }
-}
-
-private struct FinishPill: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                action()
-            }
-        } label: {
-            Text(title)
-                .font(.system(size: 14, weight: .regular, design: .default))
-                .foregroundStyle(isSelected ? AppTheme.primaryText : AddEventCardStyle.unselectedLabel)
-                .padding(.horizontal, 16)
-                .frame(height: 36)
+                    Text(title)
+                        .font(.system(size: 13, weight: .medium, design: .default))
+                        .fontWeight(.medium)
+                        .foregroundStyle(isSelected ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 90)
+                .padding(.horizontal, 8)
                 .background(
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(isSelected ? AppTheme.accent : AddEventCardStyle.unselectedBackground)
+                    Group {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                                .fill(EventFormStyle.selectedTintBackground)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                                        .strokeBorder(EventFormStyle.selectedBorderColor, lineWidth: 1)
+                                )
+                        } else {
+                            EventFormStyle.unselectedSurface
+                        }
+                    }
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(isSelected ? AppTheme.accent : AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
-                )
+
+                EventFormCheckbox(isOn: isSelected)
+                    .padding(8)
+                    .allowsHitTesting(false)
+            }
         }
         .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+        .scaleEffect(x: isSelected ? 1.03 : 1.0, y: isSelected ? 1.05 : 1.0)
+        .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
     }
 }
 

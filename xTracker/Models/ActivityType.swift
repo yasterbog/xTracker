@@ -22,7 +22,7 @@ enum ActivityType: String, CaseIterable, Codable, Identifiable {
         case .cunnilingus: "Кунилингус"
         case .anal: "Анал"
         case .masturbation: "Мастурбация"
-        case .handjob: "Хэндджоб"
+        case .handjob: "Дрочка партнеру"
         }
     }
 
@@ -33,7 +33,7 @@ enum ActivityType: String, CaseIterable, Codable, Identifiable {
         case .cunnilingus: "👅"
         case .anal: "🍑"
         case .masturbation: "🤚"
-        case .handjob: "🖐️"
+        case .handjob: "🤝"
         }
     }
 }

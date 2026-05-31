@@ -144,26 +144,30 @@ struct CalendarView: View {
     }
 
     private func calendarGrid(for month: Date) -> some View {
-        LazyVGrid(columns: Self.gridColumns, spacing: 4) {
-            ForEach(monthDays(for: month), id: \.self) { day in
-                if let day {
+        let days = monthDays(for: month)
+
+        return LazyVGrid(columns: Self.gridColumns, spacing: 4) {
+            ForEach(days.indices, id: \.self) { index in
+                if let day = days[index] {
+                    let count = displayEventCount(on: day)
                     CalendarDayCell(
                         day: day,
                         selectedDate: selectedDate,
                         calendar: calendar,
                         isCurrentMonth: calendar.isDate(day, equalTo: month, toGranularity: .month),
                         isFuture: isFutureDate(day),
-                        eventCount: displayEventCount(on: day)
+                        eventCount: count
                     ) {
                         selectDay(day)
                     }
+                    .id("\(day.timeIntervalSinceReferenceDate)-\(count)")
                 } else {
                     Color.clear
-                        .frame(height: 40)
+                        .frame(height: 49)
                 }
             }
         }
-        .id(selectedDate)
+        .id(selectedActivityFilters)
     }
 
     // MARK: - Monthly summary
@@ -174,12 +178,23 @@ struct CalendarView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(monthlyActivityCounts, id: \.activity.id) { item in
-                            MonthlyActivityChip(
-                                activity: item.activity,
-                                count: item.count,
+                            FilterChip(
                                 isSelected: selectedActivityFilters.contains(item.activity)
                             ) {
                                 toggleActivityFilter(item.activity)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(item.activity.emoji)
+                                        .font(.system(size: 14, weight: .regular, design: .default))
+
+                                    Text("\(item.count)")
+                                        .font(ChipMetrics.filterFont)
+                                        .foregroundColor(
+                                            selectedActivityFilters.contains(item.activity)
+                                                ? EventFormStyle.selectedLabel
+                                                : AppTheme.primaryText
+                                        )
+                                }
                             }
                             .padding(.horizontal, 2)
                         }
@@ -233,22 +248,9 @@ struct CalendarView: View {
     }
 
     private var addEventButton: some View {
-        Button {
+        ChipButton(icon: "plus", title: "Добавить") {
             showAddEvent = true
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .medium))
-                Text("Добавить")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(AppTheme.subtleSurfaceBackground)
-            .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
     }
 
     private var eventsList: some View {
@@ -346,10 +348,7 @@ struct CalendarView: View {
 
     private func selectDay(_ day: Date) {
         guard !isFutureDate(day) else { return }
-
-        withAnimation(.easeInOut(duration: 0.15)) {
-            selectedDate = calendar.startOfDay(for: day)
-        }
+        selectedDate = calendar.startOfDay(for: day)
     }
 
     private func isFutureDate(_ date: Date) -> Bool {
@@ -379,42 +378,6 @@ struct CalendarView: View {
     }
 
     private static let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
-}
-
-// MARK: - Monthly Chip
-
-private struct MonthlyActivityChip: View {
-    let activity: ActivityType
-    let count: Int
-    let isSelected: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                onTap()
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Text(activity.emoji)
-                    .font(.system(size: 14, weight: .regular, design: .default))
-
-                Text("\(count)")
-                    .font(.system(size: 13, weight: .medium, design: .default))
-                    .foregroundStyle(isSelected ? Color.white : AppTheme.primaryText)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(isSelected ? AppTheme.accent : AppTheme.subtleSurfaceBackground)
-            )
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
-    }
 }
 
 // MARK: - Day Cell
@@ -454,16 +417,24 @@ private struct CalendarDayCell: View {
         Button(action: onTap) {
             VStack(spacing: 3) {
                 ZStack {
-                    dayBackground
+                    Circle()
+                        .fill(dayCircleFill)
+
+                    if showsTodayRing {
+                        Circle()
+                            .strokeBorder(AppTheme.accent, lineWidth: 2)
+                    }
+
                     Text("\(calendar.component(.day, from: day))")
                         .font(.system(size: 15, weight: dayNumberWeight, design: .default))
                         .foregroundStyle(dayNumberColor)
                 }
                 .frame(width: 32, height: 32)
-                .animation(.easeInOut(duration: 0.15), value: visualState)
+                .animation(nil, value: visualState)
 
                 eventIndicator
                     .frame(height: 12)
+                    .animation(nil, value: eventCount)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 49)
@@ -473,21 +444,19 @@ private struct CalendarDayCell: View {
         .disabled(isFuture)
     }
 
-    @ViewBuilder
-    private var dayBackground: some View {
+    private var dayCircleFill: Color {
         switch visualState {
         case .selectedToday:
-            Circle()
-                .fill(AppTheme.accent)
+            return AppTheme.accent
         case .selected:
-            Circle()
-                .fill(Color.white)
-        case .today:
-            Circle()
-                .strokeBorder(AppTheme.accent, lineWidth: 2)
-        case .normal:
-            EmptyView()
+            return Color.white
+        case .today, .normal:
+            return .clear
         }
+    }
+
+    private var showsTodayRing: Bool {
+        visualState == .today
     }
 
     private var dayNumberWeight: Font.Weight {
@@ -621,14 +590,10 @@ private enum CalendarFormatters {
     }
 
     static func selectedDayHeader(for date: Date, calendar: Calendar) -> String {
-        let dayMonth = dayMonthFormatter.string(from: date)
-        if calendar.isDateInToday(date) {
-            return "Сегодня, \(dayMonth)"
+        if calendar.isDateInToday(date) || calendar.isDateInYesterday(date) {
+            return EventDateFormatting.pillLabel(for: date, calendar: calendar)
         }
-        if calendar.isDateInYesterday(date) {
-            return "Вчера, \(dayMonth)"
-        }
-        return dayMonth
+        return dayMonthFormatter.string(from: date)
     }
 }
 

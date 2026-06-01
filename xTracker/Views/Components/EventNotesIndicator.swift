@@ -15,7 +15,7 @@ struct EventNotesIndicator: View {
     var body: some View {
         Image(systemName: "text.quote")
             .symbolRenderingMode(.hierarchical)
-            .font(.system(size: 11, weight: .medium, design: .default))
+            .font(.system(size: 11, weight: .medium))
             .foregroundStyle(iconColor)
             .frame(width: size, height: size)
             .background(

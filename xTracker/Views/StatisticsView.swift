@@ -68,7 +68,7 @@ struct StatisticsView: View {
                             .padding(.horizontal, AppTheme.screenHorizontalPadding)
                         }
                     }
-                    .padding(.bottom, 24)
+                    .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
                 }
                 .scrollIndicators(.hidden)
             }
@@ -100,11 +100,11 @@ struct StatisticsView: View {
     private var statisticsEmptyState: some View {
         VStack(spacing: 14) {
             Image(systemName: "heart.fill")
-                .font(.system(size: 54, weight: .regular, design: .default))
+                .font(.system(size: 54, weight: .regular))
                 .foregroundStyle(AppTheme.accent)
 
             Text("Нет событий")
-                .font(.system(size: 20, weight: .bold, design: .default))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(AppTheme.primaryText)
 
             Text("Добавьте первое событие в календаре")
@@ -381,11 +381,11 @@ struct StatisticsView: View {
                                 Spacer()
 
                                 Text("\(slice.count)")
-                                    .font(.system(size: 13, weight: .bold, design: .default))
+                                    .font(.system(size: 13, weight: .bold))
                                     .foregroundStyle(AppTheme.primaryText)
 
                                 Text("\(Int((slice.fraction * 100).rounded()))%")
-                                    .font(.system(size: 13, weight: .semibold, design: .default))
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(AppTheme.secondaryText)
                             }
                         }
@@ -487,7 +487,7 @@ private struct PeriodOptionsSheet: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Свой период")
-                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -555,7 +555,7 @@ private struct CustomPeriodSheet: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Свой период")
-                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -652,7 +652,7 @@ private struct MonthlyEventsLineChart: View {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(dataPoints.enumerated()), id: \.offset) { index, point in
                     Text(xAxisLabel(for: index, label: point.label))
-                        .font(.system(size: 10, weight: .regular, design: .default))
+                        .font(.system(size: 10, weight: .regular))
                         .foregroundStyle(AppTheme.secondaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -859,7 +859,7 @@ private struct HorizontalBarRow: View {
                     .lineLimit(1)
                 Spacer()
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold, design: .default))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppTheme.secondaryText)
             }
 
@@ -918,7 +918,7 @@ private struct TimeOfDayBar: View {
 
             VStack(spacing: 2) {
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold, design: .default))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(isHighlighted ? AppTheme.accent : AppTheme.secondaryText)
 
                 RoundedRectangle(cornerRadius: 6)
@@ -927,12 +927,12 @@ private struct TimeOfDayBar: View {
             }
 
             Text(label)
-                .font(.system(size: 11, weight: .regular, design: .default))
+                .font(.system(size: 11, weight: .regular))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(AppTheme.primaryText)
 
             Text(range)
-                .font(.system(size: 10, weight: .regular, design: .default))
+                .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(AppTheme.secondaryText)
         }
         .frame(width: barWidth)

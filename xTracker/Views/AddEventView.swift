@@ -383,10 +383,10 @@ private struct SelectableCard: View {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 8) {
                     Text(emoji)
-                        .font(.system(size: 32, weight: .regular, design: .default))
+                        .font(.system(size: 32))
 
                     Text(title)
-                        .font(.system(size: 13, weight: .medium, design: .default))
+                        .font(.system(size: 13, weight: .medium))
                         .fontWeight(.medium)
                         .foregroundStyle(isSelected ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
                         .multilineTextAlignment(.center)

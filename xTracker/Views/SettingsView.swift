@@ -46,7 +46,7 @@ struct SettingsView: View {
                         .padding(.top, 24)
                 }
                 .padding(.horizontal, AppTheme.screenHorizontalPadding)
-                .padding(.bottom, 24)
+                .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
             .ambientMainScreen(gradientStart: gradientStart, gradientEnd: gradientEnd)
@@ -162,18 +162,13 @@ struct SettingsView: View {
 
                 Spacer(minLength: 0)
 
-                Button {
+                ChipButton(title: "Изменить") {
                     showProfileEditor = true
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 20, weight: .regular, design: .default))
-                        .foregroundStyle(Color.gray)
                 }
-                .buttonStyle(.plain)
             }
 
             Text(displayName)
-                .font(.system(size: 28, weight: .bold, design: .default))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(AppTheme.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 12)
@@ -196,7 +191,7 @@ struct SettingsView: View {
                     Spacer()
 
                     Text(authService.pairCode.isEmpty ? "…" : authService.pairCode)
-                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
                         .monospaced()
 
@@ -210,7 +205,7 @@ struct SettingsView: View {
                         }
                     } label: {
                         Image(systemName: didCopyCode ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 16, weight: .regular, design: .default))
+                            .font(.system(size: 16, weight: .regular))
                             .foregroundStyle(didCopyCode ? .green : AppTheme.accent)
                     }
                     .buttonStyle(.plain)
@@ -238,7 +233,7 @@ struct SettingsView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold, design: .default))
+                                .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(AppTheme.secondaryText)
                         }
                     }
@@ -466,7 +461,7 @@ private struct ClearableTextField: View {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18, weight: .regular, design: .default))
+                        .font(.system(size: 18, weight: .regular))
                         .foregroundStyle(AppTheme.secondaryText)
                 }
                 .buttonStyle(.plain)
@@ -489,7 +484,7 @@ private struct SheetPrimaryButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .semibold, design: .default))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppTheme.primaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -548,7 +543,7 @@ private struct EditableAvatarView: View {
                         .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
 
                     Image(systemName: "camera.fill")
-                        .font(.system(size: cameraIconSize, weight: .semibold, design: .default))
+                        .font(.system(size: cameraIconSize, weight: .semibold))
                         .foregroundStyle(Color.black)
                 }
                 .offset(x: cameraOffset, y: cameraOffset)
@@ -609,7 +604,7 @@ private struct AvatarView: View {
                     .scaledToFill()
             } else {
                 Text(initials)
-                    .font(.system(size: size * 0.32, weight: .bold, design: .default))
+                    .font(.system(size: size * 0.32, weight: .bold))
                     .foregroundStyle(AppTheme.primaryText)
             }
         }

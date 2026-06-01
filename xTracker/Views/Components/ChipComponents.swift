@@ -167,15 +167,17 @@ struct CompactDatePickerBridge: UIViewRepresentable {
 // MARK: - Chip Button
 
 struct ChipButton: View {
-    let icon: String
+    var icon: String?
     let title: String
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
+            HStack(spacing: icon == nil ? 0 : 4) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .medium))
+                }
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
             }

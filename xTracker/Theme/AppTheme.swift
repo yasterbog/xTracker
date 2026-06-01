@@ -30,6 +30,8 @@ enum AppTheme {
     static let screenHorizontalPadding: CGFloat = 20
     static let cardPadding: CGFloat = 20
     static let cardSpacing: CGFloat = 12
+    /// Bottom scroll padding so content can pass under the floating tab bar (~56pt bar + 12pt offset + home indicator).
+    static let floatingTabBarScrollClearance: CGFloat = 88
 
     static func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())

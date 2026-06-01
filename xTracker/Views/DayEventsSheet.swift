@@ -88,12 +88,11 @@ private struct EventRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(timeFormatter.string(from: event.date))
-                .font(.system(size: 16, weight: .regular, design: .default))
+                .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(AppTheme.accent)
                 .frame(width: 52, alignment: .leading)
 
-            Text(event.activities.map(\.emoji).joined(separator: " "))
-                .font(.system(size: 20, weight: .regular, design: .default))
+            EventActivitiesSummaryLine(activities: event.activities)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if event.hasNotes {

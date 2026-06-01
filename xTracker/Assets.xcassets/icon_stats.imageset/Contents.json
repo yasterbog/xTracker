@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "chart.svg",
+      "filename" : "graph bold.svg",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "chart 1.svg",
+      "filename" : "graph bold 1.svg",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "chart 2.svg",
+      "filename" : "graph bold 2.svg",
       "idiom" : "universal",
       "scale" : "3x"
     }

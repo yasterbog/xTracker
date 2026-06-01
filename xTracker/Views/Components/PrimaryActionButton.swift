@@ -49,7 +49,7 @@ struct PrimaryActionButton: View {
                     .tint(AppTheme.primaryText)
             } else {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .default))
+                    .font(.system(size: 16, weight: .semibold))
             }
         }
         .foregroundStyle(isEnabled && !isLoading ? AppTheme.primaryText : PrimaryActionButtonMetrics.disabledText)

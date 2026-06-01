@@ -22,7 +22,7 @@ struct PartnerConnectSheet: View {
                 TextField("Код партнёра", text: $partnerCodeInput)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
-                    .font(.system(size: 20, weight: .semibold, design: .default))
+                    .font(.system(size: 20, weight: .semibold))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(AppTheme.primaryText)
                     .padding()
@@ -46,7 +46,7 @@ struct PartnerConnectSheet: View {
                                 .tint(AppTheme.primaryText)
                         } else {
                             Text("Подключить")
-                                .font(.system(size: 16, weight: .semibold, design: .default))
+                                .font(.system(size: 16, weight: .semibold))
                         }
                     }
                     .foregroundStyle(AppTheme.primaryText)

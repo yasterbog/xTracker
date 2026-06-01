@@ -77,6 +77,7 @@ struct CalendarView: View {
                             .padding(.top, 4)
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
+                    .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .scrollIndicators(.hidden)
@@ -136,7 +137,7 @@ struct CalendarView: View {
         LazyVGrid(columns: Self.gridColumns, spacing: 2) {
             ForEach(weekdaySymbols, id: \.self) { symbol in
                 Text(symbol)
-                    .font(.system(size: 11, weight: .regular, design: .default))
+                    .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(AppTheme.secondaryText)
                     .frame(maxWidth: .infinity)
             }
@@ -185,7 +186,7 @@ struct CalendarView: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     Text(item.activity.emoji)
-                                        .font(.system(size: 14, weight: .regular, design: .default))
+                                        .font(.system(size: 14))
 
                                     Text("\(item.count)")
                                         .font(ChipMetrics.filterFont)
@@ -225,6 +226,7 @@ struct CalendarView: View {
             selectedDayHeader
                 .padding(.top, 12)
                 .padding(.bottom, 4)
+                .padding(.horizontal, AppTheme.screenHorizontalPadding)
 
             if !selectedDayEvents.isEmpty {
                 eventsList
@@ -232,14 +234,13 @@ struct CalendarView: View {
                     .transition(.opacity)
             }
         }
-        .padding(.horizontal, 20)
         .animation(.easeInOut(duration: 0.2), value: selectedDate)
     }
 
     private var selectedDayHeader: some View {
         HStack(alignment: .center, spacing: 12) {
             Text(CalendarFormatters.selectedDayHeader(for: selectedDate, calendar: calendar))
-                .font(.system(size: 16, weight: .semibold, design: .default))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppTheme.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -276,13 +277,21 @@ struct CalendarView: View {
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                .listRowInsets(
+                    EdgeInsets(
+                        top: 4,
+                        leading: AppTheme.screenHorizontalPadding,
+                        bottom: 4,
+                        trailing: AppTheme.screenHorizontalPadding
+                    )
+                )
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDisabled(true)
         .applyListHorizontalContentMarginsZero()
+        .applyListScrollClipDisabled()
         .frame(height: CGFloat(selectedDayEvents.count) * 100)
         .padding(.top, 8)
     }
@@ -426,7 +435,7 @@ private struct CalendarDayCell: View {
                     }
 
                     Text("\(calendar.component(.day, from: day))")
-                        .font(.system(size: 15, weight: dayNumberWeight, design: .default))
+                        .font(.system(size: 15, weight: dayNumberWeight))
                         .foregroundStyle(dayNumberColor)
                 }
                 .frame(width: 32, height: 32)
@@ -499,7 +508,7 @@ private struct CalendarDayCell: View {
             }
         default:
             Text("🔥")
-                .font(.system(size: 9, weight: .regular, design: .default))
+                .font(.system(size: 9, weight: .regular))
         }
     }
 
@@ -538,7 +547,7 @@ private struct CalendarEventRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .center, spacing: 8) {
                     Text(Self.timeFormatter.string(from: event.date))
-                        .font(.system(size: 15, weight: .medium, design: .default))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(AppTheme.primaryText)
 
                     Spacer(minLength: 0)
@@ -548,17 +557,12 @@ private struct CalendarEventRow: View {
                     }
                 }
 
-                HStack(spacing: 4) {
-                    ForEach(event.activities) { activity in
-                        Text(activity.emoji)
-                            .font(.system(size: 24, weight: .regular, design: .default))
-                    }
-                }
+                EventActivitiesSummaryLine(activities: event.activities)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold, design: .default))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -609,6 +613,15 @@ private extension View {
     func applyListHorizontalContentMarginsZero() -> some View {
         if #available(iOS 17.0, *) {
             contentMargins(.horizontal, 0, for: .scrollContent)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func applyListScrollClipDisabled() -> some View {
+        if #available(iOS 17.0, *) {
+            scrollClipDisabled()
         } else {
             self
         }

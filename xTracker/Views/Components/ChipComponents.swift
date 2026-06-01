@@ -11,11 +11,11 @@ enum ChipMetrics {
     static let verticalPadding: CGFloat = 8
     static let fontSize: CGFloat = 14
 
-    static var filterFont: Font {
+    static var chipTitle: Font {
         .system(size: fontSize, weight: .regular, design: .default)
     }
 
-    static var pickerFont: Font {
+    static var chipButtonTitle: Font {
         .system(size: fontSize, weight: .medium, design: .default)
     }
 
@@ -53,12 +53,12 @@ struct FilterChip<Label: View>: View {
 }
 
 extension FilterChip where Label == Text {
-    init(title: String, isSelected: Bool, action: @escaping () -> Void) {
+    init(chipTitle: String, isSelected: Bool, action: @escaping () -> Void) {
         self.isSelected = isSelected
         self.action = action
         self.label = {
-            Text(title)
-                .font(ChipMetrics.filterFont)
+            Text(chipTitle)
+                .font(ChipMetrics.chipTitle)
                 .foregroundColor(isSelected ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
         }
     }
@@ -81,7 +81,7 @@ struct PickerChip: View {
     var body: some View {
         ZStack {
             Text(chipTitle)
-                .font(ChipMetrics.pickerFont)
+                .font(ChipMetrics.chipTitle)
                 .foregroundColor(valueColor)
                 .padding(.horizontal, ChipMetrics.horizontalPadding)
                 .padding(.vertical, ChipMetrics.verticalPadding)
@@ -179,7 +179,7 @@ struct ChipButton: View {
                         .font(.system(size: 12, weight: .medium))
                 }
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(ChipMetrics.chipButtonTitle)
             }
             .foregroundColor(.white)
             .padding(.horizontal, ChipMetrics.horizontalPadding)

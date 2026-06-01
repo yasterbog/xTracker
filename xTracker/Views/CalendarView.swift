@@ -186,10 +186,10 @@ struct CalendarView: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     Text(item.activity.emoji)
-                                        .font(.system(size: 14))
+                                        .font(ChipMetrics.chipTitle)
 
                                     Text("\(item.count)")
-                                        .font(ChipMetrics.filterFont)
+                                        .font(ChipMetrics.chipTitle)
                                         .foregroundColor(
                                             selectedActivityFilters.contains(item.activity)
                                                 ? EventFormStyle.selectedLabel

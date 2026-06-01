@@ -61,201 +61,133 @@ struct ContentView: View {
 struct FloatingTabBar: View {
     @Binding var selectedTab: Int
 
-    @State private var dragTranslation: CGFloat = 0
-    @State private var isDragging = false
     @State private var touchStartIndex: Int = 0
     @State private var isTouching = false
-    @State private var pillStretchX: CGFloat = 1
-    @State private var pillStretchY: CGFloat = 1
-    @State private var pillStretchAnchor: UnitPoint = .center
+    @State private var pillStretch: PillStretchState = .neutral
     @State private var pillStretchResetTask: Task<Void, Never>?
 
-    private let itemWidth: CGFloat = 72
-    private let itemSpacing: CGFloat = 4
-    private let tabCount = 3
-    private let containerPadding: CGFloat = 4
-    /// Blur strength: `.ultraThinMaterial` (lightest) → `.thinMaterial` → `.regularMaterial` (strongest).
-    private let barGlassMaterial: Material = .ultraThinMaterial
-    private let barGlassTintAlpha: CGFloat = 0.12
-    private let barGlassHighlightAlpha: CGFloat = 0.03
+    private static let itemWidth: CGFloat = 72
+    private static let itemSpacing: CGFloat = 4
+    private static let tabCount = 3
+    private static let containerPadding: CGFloat = 4
+    private static let rowWidth =
+        CGFloat(tabCount) * itemWidth + CGFloat(tabCount - 1) * itemSpacing
+    private static let rowHeight: CGFloat = 48
+    private static let barSize = CGSize(
+        width: rowWidth + containerPadding * 2,
+        height: rowHeight + containerPadding * 2
+    )
+
     private let pressedScale: CGFloat = 1.08
-    private let pressSpring = Animation.spring(response: 0.42, dampingFraction: 0.45)
-    private let pillSpring = Animation.spring(response: 0.28, dampingFraction: 0.9)
-    private let pillShapeRelaxSpring = Animation.spring(response: 0.34, dampingFraction: 0.72)
-    private let dragMovementThreshold: CGFloat = 6
+    private let pressSpring = Animation.spring(response: 0.32, dampingFraction: 0.82)
+    /// Ignore finger movement beyond this (pt²) so a small wobble still counts as a tap.
+    private let tapCancelThresholdSquared: CGFloat = 36
 
-    let tabs = [
-        ("icon_calendar", "icon_calendar_outline"),
-        ("icon_stats", "icon_stats_outline"),
-        ("icon_settings", "icon_settings_outline"),
-    ]
-
-    private var segmentWidth: CGFloat { itemWidth + itemSpacing }
-
-    private var displayIndex: CGFloat {
-        let base = CGFloat(isDragging ? touchStartIndex : selectedTab)
-        let offset = isDragging ? dragTranslation / segmentWidth : 0
-        return min(max(base + offset, 0), CGFloat(tabCount - 1))
-    }
+    private var segmentWidth: CGFloat { Self.itemWidth + Self.itemSpacing }
 
     private var pillOffsetX: CGFloat {
-        displayIndex * segmentWidth
+        CGFloat(selectedTab) * segmentWidth
+    }
+
+    private var highlightedIndex: Int {
+        isTouching ? touchStartIndex : selectedTab
     }
 
     var body: some View {
-        tabBarContent
-            .scaleEffect(isTouching ? pressedScale : 1)
-            .animation(pressSpring, value: isTouching)
-    }
+        ZStack {
+            TabBarBlurCapsule(size: Self.barSize)
+                .equatable()
 
-    private var tabBarContent: some View {
-        HStack(spacing: itemSpacing) {
-            ForEach(0..<tabCount, id: \.self) { index in
-                tabItem(for: index)
-            }
+            TabBarTrackView(
+                pillOffsetX: pillOffsetX,
+                highlightedIndex: highlightedIndex,
+                pillStretch: pillStretch
+            )
+            .padding(Self.containerPadding)
         }
-        .background(alignment: .leading) {
-            Capsule()
-                .fill(Color.white.opacity(0.12))
-                .frame(width: itemWidth, height: 48)
-                .scaleEffect(x: pillStretchX, y: pillStretchY, anchor: pillStretchAnchor)
-                .offset(x: pillOffsetX)
-                .animation(isDragging ? nil : pillSpring, value: pillOffsetX)
-                .animation(isDragging ? nil : pillSpring, value: pillStretchX)
-                .animation(isDragging ? nil : pillSpring, value: pillStretchY)
-                .allowsHitTesting(false)
-        }
-        .padding(.horizontal, containerPadding)
-        .padding(.vertical, containerPadding)
-        .background {
-            Capsule()
-                .fill(barGlassMaterial)
-                .overlay {
-                    Capsule()
-                        .fill(AppTheme.background.opacity(barGlassTintAlpha))
-                }
-                .overlay {
-                    Capsule()
-                        .fill(Color.white.opacity(barGlassHighlightAlpha))
-                }
-        }
-        .overlay {
-            Capsule()
-                .stroke(GlassCardMetrics.borderGradient, lineWidth: 1)
-                .allowsHitTesting(false)
-        }
-        .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+        .frame(width: Self.barSize.width, height: Self.barSize.height)
+        .scaleEffect(isTouching ? pressedScale : 1)
+        .animation(pressSpring, value: isTouching)
         .contentShape(Capsule())
-        .gesture(tabBarDragGesture)
-    }
-
-    private func tabItem(for index: Int) -> some View {
-        let filledIndex = isTouching ? touchStartIndex : selectedTab
-        let usesActiveIcon = index == filledIndex
-
-        return Image(usesActiveIcon ? tabs[index].0 : tabs[index].1)
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .foregroundColor(.white)
-            .frame(width: 24, height: 24)
-            .frame(width: itemWidth, height: 48)
-            .allowsHitTesting(false)
+        .gesture(tabBarTapGesture)
     }
 
     private func tabIndex(at locationX: CGFloat) -> Int {
-        let adjustedX = locationX - containerPadding
+        let adjustedX = locationX - Self.containerPadding
         guard adjustedX >= 0 else { return 0 }
         let index = Int(adjustedX / segmentWidth)
-        return min(max(index, 0), tabCount - 1)
+        return min(max(index, 0), Self.tabCount - 1)
+    }
+
+    private func exceedsTapCancelThreshold(_ translation: CGSize) -> Bool {
+        let dx = translation.width
+        let dy = translation.height
+        return dx * dx + dy * dy > tapCancelThresholdSquared
     }
 
     private func beginPillStretch(from fromIndex: Int, to toIndex: Int) {
         guard fromIndex != toIndex else { return }
 
         let distance = abs(toIndex - fromIndex)
-        pillStretchAnchor = toIndex > fromIndex ? .leading : .trailing
-        pillStretchX = 1.02 + 0.04 * CGFloat(max(0, distance - 1))
-        pillStretchY = 0.95
+        let anchor: UnitPoint = toIndex > fromIndex ? .leading : .trailing
+        pillStretch = PillStretchState(
+            x: 1.02 + 0.04 * CGFloat(max(0, distance - 1)),
+            y: 0.95,
+            anchor: anchor
+        )
     }
 
     private func resetPillStretch() {
-        pillStretchAnchor = .center
-        pillStretchX = 1
-        pillStretchY = 1
+        pillStretch = .neutral
     }
 
     private func schedulePillStretchReset() {
         pillStretchResetTask?.cancel()
         pillStretchResetTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: 320_000_000)
             guard !Task.isCancelled else { return }
 
-            withAnimation(pillShapeRelaxSpring) {
+            withAnimation(TabBarPillAnimation.stretchRelax) {
                 resetPillStretch()
             }
         }
     }
 
-    private func commitTabChange(from fromIndex: Int, to toIndex: Int, updates: () -> Void) {
-        if fromIndex != toIndex {
-            beginPillStretch(from: fromIndex, to: toIndex)
+    private func selectTab(at index: Int) {
+        let fromIndex = selectedTab
+        guard index != fromIndex else { return }
+
+        var stretch = Transaction(animation: TabBarPillAnimation.stretchSnap)
+        withTransaction(stretch) {
+            beginPillStretch(from: fromIndex, to: index)
         }
 
-        withAnimation(pillSpring) {
-            updates()
+        var move = Transaction(animation: TabBarPillAnimation.move)
+        withTransaction(move) {
+            selectedTab = index
         }
 
-        if fromIndex != toIndex {
-            schedulePillStretchReset()
-        }
+        schedulePillStretchReset()
     }
 
-    private var tabBarDragGesture: some Gesture {
+    private var tabBarTapGesture: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
-                if !isTouching {
+                guard !isTouching else { return }
+
+                withAnimation(TabBarPillAnimation.icon) {
                     isTouching = true
                     touchStartIndex = tabIndex(at: value.startLocation.x)
                 }
-
-                let moved = hypot(value.translation.width, value.translation.height) > dragMovementThreshold
-
-                if moved {
-                    if !isDragging {
-                        isDragging = true
-                    }
-                    dragTranslation = value.translation.width
-                }
             }
             .onEnded { value in
-                let moved = hypot(value.translation.width, value.translation.height) > dragMovementThreshold
-
-                if !moved {
-                    let index = tabIndex(at: value.startLocation.x)
-                    let fromIndex = selectedTab
-                    commitTabChange(from: fromIndex, to: index) {
-                        if index != selectedTab {
-                            selectedTab = index
-                        }
-                        isTouching = false
-                    }
-                    dragTranslation = 0
-                    isDragging = false
-                    return
-                }
-
-                let base = CGFloat(touchStartIndex) + value.translation.width / segmentWidth
-                let projected = base + value.predictedEndTranslation.width / segmentWidth * 0.15
-                let targetIndex = Int(round(min(max(projected, 0), CGFloat(tabCount - 1))))
-                let fromIndex = selectedTab
-
-                commitTabChange(from: fromIndex, to: targetIndex) {
-                    dragTranslation = 0
-                    selectedTab = targetIndex
-                    isDragging = false
+                withAnimation(TabBarPillAnimation.icon) {
                     isTouching = false
                 }
+
+                guard !exceedsTapCancelThreshold(value.translation) else { return }
+
+                selectTab(at: tabIndex(at: value.startLocation.x))
             }
     }
 }

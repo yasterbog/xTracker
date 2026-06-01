@@ -182,7 +182,7 @@ struct AddEventView: View {
             FlowLayout(horizontalSpacing: 10, verticalSpacing: 10) {
                 ForEach(FinishType.allCases) { option in
                     FilterChip(
-                        title: option.title,
+                        chipTitle: option.title,
                         isSelected: finish == option
                     ) {
                         finish = option

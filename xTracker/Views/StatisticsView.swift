@@ -152,7 +152,7 @@ struct StatisticsView: View {
                     HStack(alignment: .center, spacing: 8) {
                         ForEach(SegmentedStatisticsPeriod.allCases) { period in
                             FilterChip(
-                                title: period.rawValue,
+                                chipTitle: period.rawValue,
                                 isSelected: segmentedPeriod == period
                             ) {
                                 withAnimation(.easeInOut(duration: 0.3)) {

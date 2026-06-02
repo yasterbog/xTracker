@@ -26,26 +26,52 @@ enum ChipMetrics {
 
 // MARK: - Filter Chip
 
+enum FilterChipVariant {
+    case primary
+    case secondary
+}
+
 struct FilterChip<Label: View>: View {
+    let variant: FilterChipVariant
     let isSelected: Bool
     let action: () -> Void
     @ViewBuilder let label: () -> Label
 
+    init(
+        variant: FilterChipVariant = .primary,
+        isSelected: Bool,
+        action: @escaping () -> Void,
+        @ViewBuilder label: @escaping () -> Label
+    ) {
+        self.variant = variant
+        self.isSelected = isSelected
+        self.action = action
+        self.label = label
+    }
+
+    private var fillColor: Color {
+        switch variant {
+        case .primary:
+            return isSelected ? EventFormStyle.selectedChipFill : EventFormStyle.surfaceBackground
+        case .secondary:
+            return isSelected ? AppTheme.accent : EventFormStyle.surfaceBackground
+        }
+    }
+
     var body: some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.7)) {
-                action()
-            }
+            action()
         } label: {
             label()
                 .padding(.horizontal, ChipMetrics.horizontalPadding)
                 .padding(.vertical, ChipMetrics.verticalPadding)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? EventFormStyle.selectedChipFill : EventFormStyle.surfaceBackground)
-                )
         }
+        .background(
+            Capsule()
+                .fill(fillColor)
+        )
+        .contentShape(Capsule())
         .buttonStyle(.plain)
         .scaleEffect(isSelected ? 1.05 : 1.0)
         .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
@@ -53,13 +79,23 @@ struct FilterChip<Label: View>: View {
 }
 
 extension FilterChip where Label == Text {
-    init(chipTitle: String, isSelected: Bool, action: @escaping () -> Void) {
+    init(
+        chipTitle: String,
+        variant: FilterChipVariant = .primary,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) {
+        self.variant = variant
         self.isSelected = isSelected
         self.action = action
         self.label = {
             Text(chipTitle)
                 .font(ChipMetrics.chipTitle)
-                .foregroundColor(isSelected ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
+                .foregroundColor(
+                    isSelected
+                        ? (variant == .primary ? AppTheme.background : AppTheme.primaryText)
+                        : EventFormStyle.unselectedLabel
+                )
         }
     }
 }

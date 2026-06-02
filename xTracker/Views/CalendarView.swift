@@ -10,9 +10,6 @@ struct CalendarView: View {
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var userService: UserService
-    let gradientStart: UnitPoint
-    let gradientEnd: UnitPoint
-
     @State private var anchorMonth = Calendar.current.startOfMonth(for: Date())
     @State private var monthOffset = 0
     @State private var selectedDate = CalendarView.initialSelectedDate
@@ -66,23 +63,23 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        calendarSection
+            ScrollView {
+                VStack(spacing: 0) {
+                    calendarSection
 
-                        monthlySummarySection
+                    monthlySummarySection
 
-                        eventsSection
-                            .padding(.top, 4)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                    .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
+                    eventsSection
+                        .padding(.top, 4)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .scrollIndicators(.hidden)
+                .frame(maxWidth: .infinity, alignment: .top)
+                .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
+                .background(AppTheme.background)
             }
-            .ambientMainScreen(gradientStart: gradientStart, gradientEnd: gradientEnd)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .scrollIndicators(.hidden)
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.background)
             .navigationTitle(currentMonthYearString)
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -168,7 +165,6 @@ struct CalendarView: View {
                 }
             }
         }
-        .id(selectedActivityFilters)
     }
 
     // MARK: - Monthly summary
@@ -192,7 +188,7 @@ struct CalendarView: View {
                                         .font(ChipMetrics.chipTitle)
                                         .foregroundColor(
                                             selectedActivityFilters.contains(item.activity)
-                                                ? EventFormStyle.selectedLabel
+                                                ? AppTheme.background
                                                 : AppTheme.primaryText
                                         )
                                 }
@@ -292,9 +288,13 @@ struct CalendarView: View {
         .scrollDisabled(true)
         .applyListHorizontalContentMarginsZero()
         .applyListScrollClipDisabled()
-        .frame(height: CGFloat(selectedDayEvents.count) * 100)
+        .frame(height: CGFloat(selectedDayEvents.count) * Self.eventRowEstimatedHeight)
         .padding(.top, 8)
     }
+
+    /// Matches current CalendarEventRow + List row insets.
+    /// Keeps bottom gap aligned with Statistics screen.
+    private static let eventRowEstimatedHeight: CGFloat = 92
 
     // MARK: - Helpers
 
@@ -629,7 +629,7 @@ private extension View {
 }
 
 #Preview {
-    CalendarView(gradientStart: .top, gradientEnd: .bottomTrailing)
+    CalendarView()
         .environmentObject(EventStore())
         .environmentObject(AuthService())
         .environmentObject(UserService())

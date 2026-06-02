@@ -13,9 +13,6 @@ struct SettingsView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var userService: UserService
-    let gradientStart: UnitPoint
-    let gradientEnd: UnitPoint
-
     @State private var nameDraft: String = SettingsStore.userName
     @State private var isEditingName = false
     @State private var showProfileEditor = false
@@ -36,20 +33,20 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                VStack(alignment: .leading, spacing: 0) {
-                    profileHeader
-                        .padding(.top, 16)
-                    partnerCard
+            VStack(alignment: .leading, spacing: 0) {
+                profileHeader
+                    .padding(.top, 16)
+                partnerCard
 
-                    deleteAllDataButton
-                        .padding(.top, 24)
-                }
-                .padding(.horizontal, AppTheme.screenHorizontalPadding)
-                .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                deleteAllDataButton
+                    .padding(.top, 24)
+
+                Spacer(minLength: 0)
             }
-            .ambientMainScreen(gradientStart: gradientStart, gradientEnd: gradientEnd)
+            .padding(.horizontal, AppTheme.screenHorizontalPadding)
+            .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(AppTheme.background)
             .navigationTitle("Настройки")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -641,7 +638,7 @@ private struct PartnerProfileRow: View {
 }
 
 #Preview {
-    SettingsView(gradientStart: .top, gradientEnd: .bottomTrailing)
+    SettingsView()
         .environmentObject(AuthService())
         .environmentObject(UserService())
         .environmentObject(EventStore())

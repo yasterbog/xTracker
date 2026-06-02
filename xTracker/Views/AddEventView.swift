@@ -87,7 +87,7 @@ struct AddEventView: View {
 
     private var dateTimeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader("Дата и время")
+            AppTheme.sectionTitle("Дата и время")
 
             HStack(spacing: 10) {
                 PickerChip(
@@ -120,7 +120,7 @@ struct AddEventView: View {
 
     private var activitiesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader("Активности")
+            AppTheme.sectionTitle("Активности")
 
             LazyVGrid(columns: Self.twoColumns, spacing: 12) {
                 ForEach(ActivityType.allCases) { activity in
@@ -139,7 +139,7 @@ struct AddEventView: View {
 
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader("Детали")
+            AppTheme.sectionTitle("Детали")
 
             VStack(spacing: 12) {
                 AddEventDetailCheckboxRow(
@@ -158,7 +158,7 @@ struct AddEventView: View {
 
     private var toysSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader("Игрушки")
+            AppTheme.sectionTitle("Игрушки")
 
             LazyVGrid(columns: Self.twoColumns, spacing: 12) {
                 ForEach(ToyType.allCases) { toy in
@@ -177,12 +177,13 @@ struct AddEventView: View {
 
     private var finishSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader("Окончание")
+            AppTheme.sectionTitle("Окончание")
 
             FlowLayout(horizontalSpacing: 10, verticalSpacing: 10) {
                 ForEach(FinishType.allCases) { option in
                     FilterChip(
                         chipTitle: option.title,
+                        variant: .secondary,
                         isSelected: finish == option
                     ) {
                         finish = option
@@ -196,7 +197,7 @@ struct AddEventView: View {
 
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader("Заметки")
+            AppTheme.sectionTitle("Заметки")
 
             VStack(alignment: .trailing, spacing: 8) {
                 TextField("Заметки...", text: $notes, axis: .vertical)
@@ -380,41 +381,34 @@ private struct SelectableCard: View {
                 action()
             }
         } label: {
-            ZStack(alignment: .topTrailing) {
-                VStack(spacing: 8) {
-                    Text(emoji)
-                        .font(.system(size: 32))
+            VStack(spacing: 8) {
+                Text(emoji)
+                    .font(.system(size: 32))
 
-                    Text(title)
-                        .font(.system(size: 13, weight: .medium))
-                        .fontWeight(.medium)
-                        .foregroundStyle(isSelected ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.8)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 90)
-                .padding(.horizontal, 8)
-                .background(
-                    Group {
-                        if isSelected {
-                            RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                                .fill(EventFormStyle.selectedTintBackground)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                                        .strokeBorder(EventFormStyle.selectedBorderColor, lineWidth: 1)
-                                )
-                        } else {
-                            EventFormStyle.unselectedSurface
-                        }
-                    }
-                )
-
-                EventFormCheckbox(isOn: isSelected)
-                    .padding(8)
-                    .allowsHitTesting(false)
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isSelected ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 90)
+            .padding(.horizontal, 8)
+            .background(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                            .fill(EventFormStyle.selectedTintBackground)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                                    .strokeBorder(EventFormStyle.selectedBorderColor, lineWidth: 1)
+                            )
+                    } else {
+                        EventFormStyle.unselectedSurface
+                    }
+                }
+            )
         }
         .buttonStyle(.plain)
         .scaleEffect(x: isSelected ? 1.03 : 1.0, y: isSelected ? 1.05 : 1.0)

@@ -8,52 +8,27 @@ import UIKit
 
 struct ContentView: View {
     @State private var selectedTab = 0
-    @State private var gradientStart: UnitPoint = .top
-    @State private var gradientEnd: UnitPoint = .bottomTrailing
 
     init() {
         UITabBar.appearance().isHidden = true
     }
 
-    private func animateGradient() {
-        let starts: [UnitPoint] = [.topLeading, .topTrailing, .top]
-        let ends: [UnitPoint] = [.bottomLeading, .bottomTrailing, .bottom, .leading, .trailing]
-
-        withAnimation(.easeInOut(duration: 2.0)) {
-            gradientStart = starts.randomElement() ?? .top
-            gradientEnd = ends.randomElement() ?? .bottomTrailing
-        }
-    }
-
     var body: some View {
         TabView(selection: $selectedTab) {
-            CalendarView(
-                gradientStart: gradientStart,
-                gradientEnd: gradientEnd
-            )
-            .tag(0)
+            CalendarView()
+                .tag(0)
 
-            StatisticsView(
-                gradientStart: gradientStart,
-                gradientEnd: gradientEnd,
-                onAnimateGradient: animateGradient
-            )
-            .tag(1)
+            StatisticsView()
+                .tag(1)
 
-            SettingsView(
-                gradientStart: gradientStart,
-                gradientEnd: gradientEnd
-            )
-            .tag(2)
+            SettingsView()
+                .tag(2)
         }
         .toolbar(.hidden, for: .tabBar)
         .overlay(alignment: .bottom) {
             FloatingTabBar(selectedTab: $selectedTab)
                 .offset(y: 12)
                 .allowsHitTesting(true)
-        }
-        .onChange(of: selectedTab) { _ in
-            animateGradient()
         }
     }
 }

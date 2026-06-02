@@ -117,6 +117,20 @@ struct StatisticsCalculator {
         self.calendar = calendar
     }
 
+    /// Start of the selected period (start-of-day), for chart bucketing.
+    var periodStartDay: Date? { periodStartDate }
+
+    /// End of the selected period (start-of-day), for chart bucketing.
+    var periodEndDay: Date? {
+        periodEndDate.map { calendar.startOfDay(for: $0) }
+    }
+
+    /// Inclusive number of calendar days between `periodStartDay` and `periodEndDay`.
+    var periodDaySpan: Int? {
+        guard let periodStartDay, let periodEndDay else { return nil }
+        return max(0, calendar.dateComponents([.day], from: periodStartDay, to: periodEndDay).day ?? 0)
+    }
+
     var periodEvents: [Event] {
         events
             .filter { event in
@@ -138,19 +152,37 @@ struct StatisticsCalculator {
 
     var totalEvents: Int { periodEvents.count }
 
+    /// Days from the most recent event (any date) to `referenceDate` — not filtered by the selected period.
     var daysSinceLastEvent: Int? {
-        guard let last = periodEvents.last else { return nil }
-        return calendar.dateComponents([.day], from: calendar.startOfDay(for: last.date), to: calendar.startOfDay(for: referenceDate)).day
+        guard let last = events.max(by: { $0.date < $1.date }) else { return nil }
+        return calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: last.date),
+            to: calendar.startOfDay(for: referenceDate)
+        ).day
     }
 
     var maxGapDays: Int {
-        let sorted = periodEvents.map(\.date)
-        guard sorted.count >= 2 else { return 0 }
+        var uniqueEventDays: [Date] = []
+        for event in periodEvents {
+            let day = calendar.startOfDay(for: event.date)
+            if uniqueEventDays.last != day {
+                uniqueEventDays.append(day)
+            }
+        }
+
+        guard uniqueEventDays.count >= 2 else { return 0 }
 
         var maxGap = 0
-        for index in 1..<sorted.count {
-            let dayGap = calendar.dateComponents([.day], from: calendar.startOfDay(for: sorted[index - 1]), to: calendar.startOfDay(for: sorted[index])).day ?? 0
-            maxGap = max(maxGap, dayGap)
+        for index in 1..<uniqueEventDays.count {
+            let calendarDaySpan = calendar.dateComponents(
+                [.day],
+                from: uniqueEventDays[index - 1],
+                to: uniqueEventDays[index]
+            ).day ?? 0
+            // Span between start-of-days includes both endpoints; empty days = span - 1.
+            let emptyDaysBetween = max(0, calendarDaySpan - 1)
+            maxGap = max(maxGap, emptyDaysBetween)
         }
         return maxGap
     }

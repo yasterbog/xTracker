@@ -8,16 +8,13 @@ import UIKit
 
 struct StatisticsView: View {
     @EnvironmentObject private var store: EventStore
-    let gradientStart: UnitPoint
-    let gradientEnd: UnitPoint
-    let onAnimateGradient: () -> Void
-
     @State private var segmentedPeriod: SegmentedStatisticsPeriod = .allTime
     @State private var selectedPeriod: StatisticsPeriod = .allTime
     @State private var customPeriodActive = false
     @State private var customStartDate = Date()
     @State private var customEndDate = Date()
     @State private var showPeriodOptionsSheet = false
+    private static let statsCardsSpacing: CGFloat = 8
 
     private var calculator: StatisticsCalculator {
         StatisticsCalculator(
@@ -29,6 +26,10 @@ struct StatisticsView: View {
         )
     }
 
+    private var hasEventsInSelectedPeriod: Bool {
+        !calculator.periodEvents.isEmpty
+    }
+
     private var chartDataPoints: [(label: String, count: Int)] {
         let period = customPeriodActive ? StatisticsPeriod.custom : selectedPeriod
         switch period {
@@ -38,41 +39,47 @@ struct StatisticsView: View {
             return weekDailyChartData
         case .month:
             return monthWeeklyChartData
-        case .threeMonths, .year, .custom:
+        case .custom:
+            return customPeriodChartData
+        case .threeMonths, .year:
             return filteredMonthlyChartData
         }
     }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: AppTheme.cardSpacing) {
-                        if store.events.isEmpty {
-                            statisticsEmptyState
-                                .padding(.top, 16)
-                        } else {
-                            periodFilterBar
-                                .padding(.top, 16)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Self.statsCardsSpacing) {
+                    if store.events.isEmpty {
+                        statisticsEmptyState
+                            .padding(.top, 16)
+                    } else {
+                        periodFilterBar
+                            .padding(.top, 16)
 
+                        if hasEventsInSelectedPeriod {
                             monthlyChartSection
 
-                            VStack(alignment: .leading, spacing: AppTheme.cardSpacing) {
+                            VStack(alignment: .leading, spacing: Self.statsCardsSpacing) {
                                 generalSection
-                                activitiesSection
-                                femaleOrgasmSection
-                                finishSection
-                                toysSection
-                                timeOfDaySection
+                                detailSections
                             }
                             .padding(.horizontal, AppTheme.screenHorizontalPadding)
+                        } else {
+                            periodEmptyState
+                                .padding(.top, 24)
+                                .padding(.horizontal, AppTheme.screenHorizontalPadding)
                         }
                     }
-                    .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
                 }
-                .scrollIndicators(.hidden)
+                .frame(maxWidth: .infinity, alignment: .top)
+                .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
+                .background(AppTheme.background)
             }
-            .ambientMainScreen(gradientStart: gradientStart, gradientEnd: gradientEnd)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .scrollIndicators(.hidden)
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.background)
             .navigationTitle("Статистика")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -92,9 +99,6 @@ struct StatisticsView: View {
             .presentationDragIndicator(.visible)
         }
         .preferredColorScheme(.dark)
-        .onChange(of: selectedPeriod) { _ in
-            onAnimateGradient()
-        }
     }
 
     private var statisticsEmptyState: some View {
@@ -114,6 +118,51 @@ struct StatisticsView: View {
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var periodEmptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "calendar")
+                .font(.system(size: 40, weight: .regular))
+                .foregroundStyle(AppTheme.secondaryText)
+
+            Text("Пока ничего за этот период")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(AppTheme.primaryText)
+
+            Text("За выбранный интервал нет событий. Выберите другой период или добавьте запись в календаре.")
+                .font(AppTheme.captionFont)
+                .foregroundStyle(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 32)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var detailSections: some View {
+        VStack(alignment: .leading, spacing: Self.statsCardsSpacing) {
+            if !calculator.activityCounts().isEmpty {
+                activitiesSection
+            }
+
+            if calculator.femaleOrgasmCount > 0 {
+                femaleOrgasmSection
+            }
+
+            if !calculator.finishSlices().isEmpty {
+                finishSection
+            }
+
+            if !calculator.toyCounts().isEmpty {
+                toysSection
+            }
+
+            if calculator.timeOfDayCounts().contains(where: { $0.count > 0 }) {
+                timeOfDaySection
+            }
+        }
     }
 
     // MARK: - Filter
@@ -174,7 +223,7 @@ struct StatisticsView: View {
                 .chipScrollAllowsOverflow()
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, AppTheme.screenHorizontalPadding)
         .padding(.bottom, 4)
         .animation(.easeInOut(duration: 0.3), value: customPeriodActive)
     }
@@ -182,7 +231,7 @@ struct StatisticsView: View {
     // MARK: - Sections
 
     private var generalSection: some View {
-        LazyVGrid(columns: Self.twoColumns, spacing: 12) {
+        LazyVGrid(columns: Self.twoColumns, spacing: Self.statsCardsSpacing) {
             StatCard(title: "Всего событий", value: "\(calculator.totalEvents)")
             StatCard(
                 title: "Она кончила",
@@ -202,7 +251,6 @@ struct StatisticsView: View {
             dataPoints: chartDataPoints
         )
         .padding(.top, 20)
-        .padding(.horizontal, 20)
         .padding(.bottom, 24)
     }
 
@@ -275,6 +323,25 @@ struct StatisticsView: View {
         return points
     }
 
+    private var customPeriodChartData: [(label: String, count: Int)] {
+        guard let startDay = calculator.periodStartDay,
+              let endDay = calculator.periodEndDay,
+              let daySpan = calculator.periodDaySpan else {
+            return filteredMonthlyChartData
+        }
+
+        let calendar = Calendar.current
+        let events = calculator.periodEvents
+
+        if daySpan <= 6 {
+            return chartDaysInRange(from: startDay, through: endDay, events: events, calendar: calendar)
+        }
+        if daySpan <= 45 {
+            return chartWeeksInRange(from: startDay, through: endDay, events: events, calendar: calendar)
+        }
+        return chartMonthsInRange(from: startDay, through: endDay, events: events, calendar: calendar)
+    }
+
     private var filteredMonthlyChartData: [(label: String, count: Int)] {
         let calendar = Calendar.current
         let filtered = calculator.periodEvents
@@ -286,6 +353,87 @@ struct StatisticsView: View {
         return sortedMonths.map { monthStart in
             (label: Self.monthLabel(from: monthStart), count: eventsByMonth[monthStart]?.count ?? 0)
         }
+    }
+
+    private func chartDaysInRange(
+        from startDay: Date,
+        through endDay: Date,
+        events: [Event],
+        calendar: Calendar
+    ) -> [(label: String, count: Int)] {
+        var days: [Date] = []
+        var day = startDay
+
+        while day <= endDay {
+            days.append(day)
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
+        }
+
+        return days.map { day in
+            let count = events.filter { calendar.isDate($0.date, inSameDayAs: day) }.count
+            return (label: Self.weekdayLabel(from: day), count: count)
+        }
+    }
+
+    private func chartWeeksInRange(
+        from startDay: Date,
+        through endDay: Date,
+        events: [Event],
+        calendar: Calendar
+    ) -> [(label: String, count: Int)] {
+        var calendar = calendar
+        calendar.firstWeekday = 2
+
+        var points: [(label: String, count: Int)] = []
+        var weekStart = startOfWeek(for: startDay, calendar: calendar)
+
+        while weekStart <= endDay {
+            guard let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) else { break }
+            let bucketStart = max(weekStart, startDay)
+            let bucketEnd = min(weekEnd, endDay)
+
+            let count = events.filter { event in
+                let eventDay = calendar.startOfDay(for: event.date)
+                return eventDay >= bucketStart && eventDay <= bucketEnd
+            }.count
+
+            points.append((label: Self.weekBucketLabel(from: bucketStart), count: count))
+
+            guard let nextWeek = calendar.date(byAdding: .day, value: 7, to: weekStart) else { break }
+            weekStart = nextWeek
+        }
+
+        return points
+    }
+
+    private func chartMonthsInRange(
+        from startDay: Date,
+        through endDay: Date,
+        events: [Event],
+        calendar: Calendar
+    ) -> [(label: String, count: Int)] {
+        guard var monthCursor = calendar.date(from: calendar.dateComponents([.year, .month], from: startDay)) else {
+            return []
+        }
+
+        var points: [(label: String, count: Int)] = []
+
+        while monthCursor <= endDay {
+            let count = events.filter { event in
+                guard let eventMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: event.date)) else {
+                    return false
+                }
+                return eventMonth == monthCursor
+            }.count
+
+            points.append((label: Self.monthLabel(from: monthCursor), count: count))
+
+            guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthCursor) else { break }
+            monthCursor = nextMonth
+        }
+
+        return points
     }
 
     private static func monthLabel(from date: Date) -> String {
@@ -357,43 +505,37 @@ struct StatisticsView: View {
     private var finishSection: some View {
         StatsSectionCard(title: "Окончания") {
             let slices = calculator.finishSlices()
-            if slices.isEmpty {
-                Text("Нет данных за период")
-                    .font(AppTheme.captionFont)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .padding(.top, 16)
-            } else {
-                VStack(spacing: 16) {
-                    DonutChartView(slices: slices.map { ($0.fraction, finishColor($0.finish)) })
-                        .frame(maxWidth: .infinity)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(slices.enumerated()), id: \.offset) { _, slice in
-                            HStack(spacing: 8) {
-                                Circle()
-                                    .fill(finishColor(slice.finish))
-                                    .frame(width: 10, height: 10)
+            VStack(spacing: 16) {
+                DonutChartView(slices: slices.map { ($0.fraction, finishColor($0.finish)) })
+                    .frame(maxWidth: .infinity)
 
-                                Text(slice.finish.title)
-                                    .font(AppTheme.captionFont)
-                                    .foregroundStyle(AppTheme.primaryText)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(slices.enumerated()), id: \.offset) { _, slice in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(finishColor(slice.finish))
+                                .frame(width: 10, height: 10)
 
-                                Spacer()
+                            Text(slice.finish.title)
+                                .font(AppTheme.captionFont)
+                                .foregroundStyle(AppTheme.primaryText)
 
-                                Text("\(slice.count)")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(AppTheme.primaryText)
+                            Spacer()
 
-                                Text("\(Int((slice.fraction * 100).rounded()))%")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(AppTheme.secondaryText)
-                            }
+                            Text("\(slice.count)")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(AppTheme.primaryText)
+
+                            Text("\(Int((slice.fraction * 100).rounded()))%")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                     }
-                    .padding(.top, 20)
                 }
-                .padding(.top, 16)
+                .padding(.top, 20)
             }
+            .padding(.top, 16)
         }
     }
 
@@ -468,8 +610,8 @@ struct StatisticsView: View {
     }
 
     private static let twoColumns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: statsCardsSpacing),
+        GridItem(.flexible(), spacing: statsCardsSpacing),
     ]
 }
 
@@ -491,9 +633,7 @@ private struct PeriodOptionsSheet: View {
                         .foregroundStyle(AppTheme.primaryText)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Начало")
-                            .font(AppTheme.captionFont)
-                            .foregroundStyle(AppTheme.secondaryText)
+                        AppTheme.sectionTitle("Начало")
 
                         DatePicker("", selection: $startDate, in: ...endDate, displayedComponents: .date)
                             .datePickerStyle(.compact)
@@ -504,9 +644,7 @@ private struct PeriodOptionsSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Конец")
-                            .font(AppTheme.captionFont)
-                            .foregroundStyle(AppTheme.secondaryText)
+                        AppTheme.sectionTitle("Конец")
 
                         DatePicker("", selection: $endDate, in: startDate...Date(), displayedComponents: .date)
                             .datePickerStyle(.compact)
@@ -527,7 +665,7 @@ private struct PeriodOptionsSheet: View {
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(AppTheme.background)
-            .sheetInlineHeader("Период")
+            .sheetInlineHeader("Свой период")
         }
         .preferredColorScheme(.dark)
     }
@@ -553,15 +691,9 @@ private struct CustomPeriodSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Свой период")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(AppTheme.primaryText)
-
+                HStack(alignment: .top, spacing: 10) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Начало")
-                            .font(AppTheme.captionFont)
-                            .foregroundStyle(AppTheme.secondaryText)
+                        AppTheme.sectionTitle("Начало")
 
                         PickerChip(
                             date: $startDate,
@@ -576,9 +708,7 @@ private struct CustomPeriodSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Конец")
-                            .font(AppTheme.captionFont)
-                            .foregroundStyle(AppTheme.secondaryText)
+                        AppTheme.sectionTitle("Конец")
 
                         PickerChip(
                             date: $endDate,
@@ -604,7 +734,7 @@ private struct CustomPeriodSheet: View {
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(AppTheme.background)
-            .sheetInlineHeader("Период")
+            .sheetInlineHeader("Свой период")
         }
         .preferredColorScheme(.dark)
     }
@@ -753,14 +883,24 @@ private struct MonthlyEventsLineChart: View {
         guard !dataPoints.isEmpty else { return [] }
 
         let plotHeight = chartPlotHeight(for: size)
-        let horizontalStep = dataPoints.count > 1 ? size.width / CGFloat(dataPoints.count - 1) : 0
 
-        return dataPoints.enumerated().map { index, point in
+        let mapped: [CGPoint] = dataPoints.enumerated().map { index, point in
+            let horizontalStep = dataPoints.count > 1 ? size.width / CGFloat(dataPoints.count - 1) : 0
             let x = dataPoints.count > 1 ? CGFloat(index) * horizontalStep : size.width / 2
             let normalized = CGFloat(point.count) / CGFloat(maxCount)
             let y = chartVerticalPadding + plotHeight * (1 - normalized)
             return CGPoint(x: x, y: y)
         }
+
+        // A single bucket cannot form a line; span the value horizontally so the chart is visible.
+        if mapped.count == 1, let point = mapped.first {
+            return [
+                CGPoint(x: 0, y: point.y),
+                CGPoint(x: size.width, y: point.y),
+            ]
+        }
+
+        return mapped
     }
 }
 
@@ -794,7 +934,7 @@ private struct StatsSectionCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AppTheme.sectionHeader(title)
+            AppTheme.sectionTitle(title)
 
             content
         }
@@ -831,7 +971,7 @@ private struct StatCard: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            AppTheme.sectionHeader(title)
+            AppTheme.sectionTitle(title)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -946,10 +1086,6 @@ private struct TimeOfDayBar: View {
 }
 
 #Preview {
-    StatisticsView(
-        gradientStart: .top,
-        gradientEnd: .bottomTrailing,
-        onAnimateGradient: {}
-    )
+    StatisticsView()
         .environmentObject(EventStore())
 }

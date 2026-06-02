@@ -46,13 +46,13 @@ struct PrimaryActionButton: View {
         Group {
             if isLoading {
                 ProgressView()
-                    .tint(AppTheme.primaryText)
+                    .tint(Color.black)
             } else {
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
             }
         }
-        .foregroundStyle(isEnabled && !isLoading ? AppTheme.primaryText : PrimaryActionButtonMetrics.disabledText)
+        .foregroundStyle(isEnabled && !isLoading ? Color.black : PrimaryActionButtonMetrics.disabledText)
         .padding(.horizontal, horizontalPadding)
         .frame(maxWidth: expandsHorizontally ? .infinity : nil)
         .frame(height: PrimaryActionButtonMetrics.height)
@@ -76,7 +76,7 @@ private struct PrimaryActionButtonStyle: ButtonStyle {
             .background {
                 ZStack {
                     PrimaryActionButtonMetrics.shape
-                        .fill(usesAccentFill ? AppTheme.accent : PrimaryActionButtonMetrics.disabledFill)
+                        .fill(usesAccentFill ? Color.white : PrimaryActionButtonMetrics.disabledFill)
 
                     if configuration.isPressed, isInteractive {
                         PrimaryActionButtonMetrics.shape

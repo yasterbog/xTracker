@@ -10,11 +10,11 @@ enum EventFormStyle {
     static let selectedLabel = AppTheme.primaryText
     static let selectedTintBackground = AppTheme.accent.opacity(0.12)
     static let selectedBorderColor = AppTheme.accent.opacity(0.55)
-    static let selectedChipFill = AppTheme.accent
+    static let selectedChipFill = Color.white
     static let selectedCheckboxFill = AppTheme.accent
     static let selectedCheckboxCheckmark = AppTheme.primaryText
     static let uncheckedCheckboxBorder = Color.white.opacity(0.06)
-    static let surfaceBackground = Color.white.opacity(0.08)
+    static let surfaceBackground = AppTheme.surfaceFill
 
     static var unselectedSurface: some View {
         RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
@@ -28,7 +28,7 @@ struct EventFormSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTheme.sectionHeader(title)
+            AppTheme.sectionTitle(title)
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)

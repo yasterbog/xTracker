@@ -7,12 +7,14 @@ import SwiftUI
 import UIKit
 
 enum AppTheme {
-    static let background = Color(hex: "#0F0F0F")
+    static let background = Color(hex: "#121212")
+    /// Unified solid surface for cards/chips/controls.
+    static let surfaceFill = Color(hex: "#1D1B1B")
     static let primaryText = Color.white
     static let secondaryText = Color.gray.opacity(0.5)
     static let sectionHeaderText = Color(hex: "#8A8A8E")
-    static let cardBackground = Color(hex: "#0F0F0F")
-    static let subtleSurfaceBackground = Color.white.opacity(0.06)
+    static let cardBackground = Color(hex: "#121212")
+    static let subtleSurfaceBackground = surfaceFill
     static let cardBorder = Color(hex: "#1F1F1F")
     static let cardBorderWidth: CGFloat = 1
     static let separator = Color.white.opacity(0.06)
@@ -27,7 +29,7 @@ enum AppTheme {
     static let sectionHeaderFont = Font.system(size: 11, weight: .semibold, design: .default)
     static let cardCornerRadius: CGFloat = 20
     static let compactCardCornerRadius: CGFloat = 16
-    static let screenHorizontalPadding: CGFloat = 20
+    static let screenHorizontalPadding: CGFloat = 16
     static let cardPadding: CGFloat = 20
     static let cardSpacing: CGFloat = 12
     /// Bottom scroll padding so content can pass under the floating tab bar (~56pt bar + 12pt offset + home indicator).
@@ -41,6 +43,14 @@ enum AppTheme {
             .foregroundStyle(sectionHeaderText)
     }
 
+    static func sectionTitle(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(sectionHeaderFont)
+            .fontWeight(.semibold)
+            .kerning(-0.2)
+            .foregroundStyle(sectionHeaderText)
+    }
+
     static func applyLargeNavigationTitleAppearance() {
         let appearance = UINavigationBarAppearance()
         appearance.largeTitleTextAttributes = [
@@ -50,6 +60,7 @@ enum AppTheme {
         ]
         UINavigationBar.appearance().largeTitleTextAttributes = appearance.largeTitleTextAttributes
     }
+
 }
 
 extension Color {
@@ -80,44 +91,7 @@ extension Color {
     }
 }
 
-struct AmbientGlowBackground: View {
-    var startPoint: UnitPoint = .top
-    var endPoint: UnitPoint = .bottomTrailing
-
-    var body: some View {
-        ZStack {
-            AppTheme.background
-                .ignoresSafeArea()
-
-            LinearGradient(
-                stops: [
-                    .init(color: AppTheme.accent.opacity(0.28), location: 0),
-                    .init(color: AppTheme.accent.opacity(0.20), location: 0.08),
-                    .init(color: AppTheme.accent.opacity(0.12), location: 0.18),
-                    .init(color: AppTheme.accent.opacity(0.06), location: 0.32),
-                    .init(color: AppTheme.accent.opacity(0.03), location: 0.48),
-                    .init(color: AppTheme.accent.opacity(0.01), location: 0.68),
-                    .init(color: Color.clear, location: 1),
-                ],
-                startPoint: startPoint,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        }
-    }
-}
-
 extension View {
-    func ambientMainScreen(
-        gradientStart: UnitPoint = .top,
-        gradientEnd: UnitPoint = .bottomTrailing
-    ) -> some View {
-        ZStack {
-            AmbientGlowBackground(startPoint: gradientStart, endPoint: gradientEnd)
-            self
-        }
-    }
-
   @ViewBuilder
   func appLargeNavigationTitle() -> some View {
     Group {

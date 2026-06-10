@@ -17,7 +17,7 @@ struct DestructionActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(AppFont.font(size: 16, weight: .semibold))
                 .foregroundStyle(titleColor)
                 .frame(maxWidth: .infinity)
                 .frame(height: PrimaryActionButtonMetrics.height)

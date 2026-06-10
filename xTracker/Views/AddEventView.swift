@@ -127,6 +127,7 @@ struct AddEventView: View {
                     SelectableCard(
                         emoji: activity.emoji,
                         title: activity.title,
+                        accentColor: FormSelectionPalette.color(for: activity),
                         isSelected: selectedActivities.contains(activity)
                     ) {
                         toggle(activity, in: &selectedActivities)
@@ -165,6 +166,7 @@ struct AddEventView: View {
                     SelectableCard(
                         emoji: toy.emoji,
                         title: toy.title,
+                        accentColor: FormSelectionPalette.color(for: toy),
                         isSelected: selectedToys.contains(toy)
                     ) {
                         toggle(toy, in: &selectedToys)
@@ -371,6 +373,7 @@ private struct AddEventDetailCheckboxRow: View {
 private struct SelectableCard: View {
     let emoji: String
     let title: String
+    let accentColor: Color
     let isSelected: Bool
     let action: () -> Void
 
@@ -383,26 +386,29 @@ private struct SelectableCard: View {
         } label: {
             VStack(spacing: 8) {
                 Text(emoji)
-                    .font(.system(size: 32))
+                    .font(AppFont.font(size: 32, weight: .semibold))
 
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isSelected ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
+                    .font(AppFont.font(size: 13, weight: .bold))
+                    .foregroundStyle(isSelected ? accentColor : EventFormStyle.unselectedLabel)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 90)
+            .frame(height: 100)
             .padding(.horizontal, 8)
             .background(
                 Group {
                     if isSelected {
                         RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                            .fill(EventFormStyle.selectedTintBackground)
+                            .fill(FormSelectionPalette.selectedBackground(accentColor))
                             .overlay(
                                 RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                                    .strokeBorder(EventFormStyle.selectedBorderColor, lineWidth: 1)
+                                    .strokeBorder(
+                                        FormSelectionPalette.selectedBorder(accentColor),
+                                        lineWidth: FormSelectionPalette.selectedBorderWidth
+                                    )
                             )
                     } else {
                         EventFormStyle.unselectedSurface

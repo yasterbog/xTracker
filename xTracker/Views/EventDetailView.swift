@@ -70,7 +70,7 @@ struct EventDetailView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AppFont.font(size: 16, weight: .semibold))
                     .foregroundColor(.gray)
             }
         }
@@ -179,7 +179,7 @@ private struct EventDetailScrollContent: View {
                 )
 
                 Text(creatorProfile.name)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AppFont.font(size: 16, weight: .semibold))
                     .foregroundStyle(AppTheme.primaryText)
 
                 Spacer(minLength: 0)
@@ -207,7 +207,11 @@ private struct EventDetailScrollContent: View {
             } else {
                 LazyVGrid(columns: EventDetailFormatters.twoColumns, spacing: 12) {
                     ForEach(event.activities) { activity in
-                        EventDetailDisplayCard(emoji: activity.emoji, title: activity.title)
+                        EventDetailDisplayCard(
+                            emoji: activity.emoji,
+                            title: activity.title,
+                            accentColor: FormSelectionPalette.color(for: activity)
+                        )
                     }
                 }
             }
@@ -248,7 +252,11 @@ private struct EventDetailScrollContent: View {
             } else {
                 LazyVGrid(columns: EventDetailFormatters.twoColumns, spacing: 12) {
                     ForEach(event.toys) { toy in
-                        EventDetailDisplayCard(emoji: toy.emoji, title: toy.title)
+                        EventDetailDisplayCard(
+                            emoji: toy.emoji,
+                            title: toy.title,
+                            accentColor: FormSelectionPalette.color(for: toy)
+                        )
                     }
                 }
             }
@@ -270,28 +278,32 @@ private struct EventDetailScrollContent: View {
 private struct EventDetailDisplayCard: View {
     let emoji: String
     let title: String
+    let accentColor: Color
 
     var body: some View {
         VStack(spacing: 8) {
             Text(emoji)
-                .font(.system(size: 32))
+                .font(AppFont.font(size: 32, weight: .semibold))
 
             Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(EventFormStyle.selectedLabel)
+                .font(AppFont.font(size: 13, weight: .bold))
+                .foregroundStyle(accentColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 90)
+        .frame(height: 100)
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                .fill(EventFormStyle.selectedTintBackground)
+                .fill(FormSelectionPalette.selectedBackground(accentColor))
                 .overlay(
                     RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                        .strokeBorder(EventFormStyle.selectedBorderColor, lineWidth: 1)
+                        .strokeBorder(
+                            FormSelectionPalette.selectedBorder(accentColor),
+                            lineWidth: FormSelectionPalette.selectedBorderWidth
+                        )
                 )
         )
     }

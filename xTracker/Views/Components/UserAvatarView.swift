@@ -55,7 +55,7 @@ struct UserAvatarView: View {
 
     private var initialsText: some View {
         Text(firstLetter)
-            .font(.system(size: size * 0.34, weight: .bold))
+            .font(AppFont.font(size: size * 0.34, weight: .bold))
             .foregroundStyle(AppTheme.primaryText)
     }
 

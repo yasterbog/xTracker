@@ -6,11 +6,10 @@
 import SwiftUI
 
 enum PrimaryActionButtonMetrics {
-    static let height: CGFloat = 56
+    static let height: CGFloat = 52
     static let cornerRadius: CGFloat = 48
     static let compactHorizontalPadding: CGFloat = 24
     static let pressedOverlayOpacity: Double = 0.22
-    static let disabledFill = Color(hex: "#48484A")
     static let disabledText = Color.white.opacity(0.55)
 
     static var shape: RoundedRectangle {
@@ -49,7 +48,7 @@ struct PrimaryActionButton: View {
                     .tint(Color.black)
             } else {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AppFont.font(size: 16, weight: .semibold))
             }
         }
         .foregroundStyle(isEnabled && !isLoading ? Color.black : PrimaryActionButtonMetrics.disabledText)
@@ -75,8 +74,13 @@ private struct PrimaryActionButtonStyle: ButtonStyle {
         configuration.label
             .background {
                 ZStack {
-                    PrimaryActionButtonMetrics.shape
-                        .fill(usesAccentFill ? Color.white : PrimaryActionButtonMetrics.disabledFill)
+                    if usesAccentFill {
+                        PrimaryActionButtonMetrics.shape
+                            .fill(Color.white)
+                    } else {
+                        FloatingChromePlate(cornerRadius: PrimaryActionButtonMetrics.cornerRadius)
+                            .clipShape(PrimaryActionButtonMetrics.shape)
+                    }
 
                     if configuration.isPressed, isInteractive {
                         PrimaryActionButtonMetrics.shape

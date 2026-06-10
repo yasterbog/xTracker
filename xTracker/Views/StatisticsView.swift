@@ -14,7 +14,7 @@ struct StatisticsView: View {
     @State private var customStartDate = Date()
     @State private var customEndDate = Date()
     @State private var showPeriodOptionsSheet = false
-    private static let statsCardsSpacing: CGFloat = 8
+    private static let statsCardsSpacing: CGFloat = StatsLayout.cardsSpacing
 
     private var calculator: StatisticsCalculator {
         StatisticsCalculator(
@@ -74,12 +74,11 @@ struct StatisticsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
-                .background(AppTheme.background)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .scrollIndicators(.hidden)
             .scrollContentBackground(.hidden)
-            .background(AppTheme.background)
+            .appScreenBackground()
             .navigationTitle("Статистика")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -104,11 +103,11 @@ struct StatisticsView: View {
     private var statisticsEmptyState: some View {
         VStack(spacing: 14) {
             Image(systemName: "heart.fill")
-                .font(.system(size: 54, weight: .regular))
+                .font(.system(size: 54))
                 .foregroundStyle(AppTheme.accent)
 
             Text("Нет событий")
-                .font(.system(size: 20, weight: .bold))
+                .font(AppFont.font(size: 20, weight: .bold))
                 .foregroundStyle(AppTheme.primaryText)
 
             Text("Добавьте первое событие в календаре")
@@ -123,11 +122,11 @@ struct StatisticsView: View {
     private var periodEmptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "calendar")
-                .font(.system(size: 40, weight: .regular))
+                .font(.system(size: 40))
                 .foregroundStyle(AppTheme.secondaryText)
 
             Text("Пока ничего за этот период")
-                .font(.system(size: 18, weight: .semibold))
+                .font(AppFont.font(size: 18, weight: .semibold))
                 .foregroundStyle(AppTheme.primaryText)
 
             Text("За выбранный интервал нет событий. Выберите другой период или добавьте запись в календаре.")
@@ -181,7 +180,7 @@ struct StatisticsView: View {
             if customPeriodActive {
                 HStack(spacing: 8) {
                     Text(customPeriodRangeLabel)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(AppFont.font(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
 
                     Button {
@@ -232,16 +231,26 @@ struct StatisticsView: View {
 
     private var generalSection: some View {
         LazyVGrid(columns: Self.twoColumns, spacing: Self.statsCardsSpacing) {
-            StatCard(title: "Всего событий", value: "\(calculator.totalEvents)")
+            StatCard(
+                title: "Всего событий",
+                value: "\(calculator.totalEvents)",
+                accentColor: AppTheme.accent
+            )
             StatCard(
                 title: "Она кончила",
                 value: "\(calculator.femaleOrgasmCount)",
+                accentColor: Color(hex: "#38D8FF"),
                 trailingEmoji: "💫"
             )
-            StatCard(title: "Максимальный перерыв", value: "\(calculator.maxGapDays) дн.")
             StatCard(
-                title: "С последнего события",
-                value: calculator.daysSinceLastEvent.map { "\($0) дн." } ?? "—"
+                title: "Макс. перерыв",
+                value: "\(calculator.maxGapDays) дн.",
+                accentColor: Color(hex: "#FFD33D")
+            )
+            StatCard(
+                title: "С последнего раза",
+                value: calculator.daysSinceLastEvent.map { "\($0) дн." } ?? "—",
+                accentColor: Color(hex: "#5EF7A0")
             )
         }
     }
@@ -473,22 +482,38 @@ struct StatisticsView: View {
     private var activitiesSection: some View {
         StatsSectionCard(title: "Активности") {
             let counts = calculator.activityCounts()
-            let maxCount = max(counts.map(\.count).max() ?? 1, 1)
+            let totalUsages = counts.map(\.count).reduce(0, +)
 
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(counts, id: \.activity.id) { item in
-                    HorizontalBarRow(
-                        leading: "\(item.activity.emoji) \(item.activity.title)",
-                        count: item.count,
-                        maxCount: maxCount
+            VStack(alignment: .leading, spacing: 16) {
+                if totalUsages > 0 {
+                    StorageStyleSegmentedBar(
+                        segments: counts.map { item in
+                            (
+                                fraction: Double(item.count) / Double(totalUsages),
+                                color: FormSelectionPalette.color(for: item.activity)
+                            )
+                        }
                     )
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(counts, id: \.activity.id) { item in
+                        let fraction = totalUsages > 0 ? Double(item.count) / Double(totalUsages) : 0
+
+                        StatsLegendRow(
+                            color: FormSelectionPalette.color(for: item.activity),
+                            title: item.activity.title,
+                            count: item.count,
+                            percentage: Int((fraction * 100).rounded())
+                        )
+                    }
                 }
             }
         }
     }
 
     private var femaleOrgasmSection: some View {
-        StatsSectionCard(title: "Она кончила 💫") {
+        StatsSectionCard(title: "Она кончила 💫", glowColor: AppTheme.accent, glowCorner: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("\(calculator.femaleOrgasmPercentage)%")
                     .font(AppTheme.statsNumberFont)
@@ -507,30 +532,21 @@ struct StatisticsView: View {
             let slices = calculator.finishSlices()
 
             VStack(spacing: 16) {
-                DonutChartView(slices: slices.map { ($0.fraction, finishColor($0.finish)) })
-                    .frame(maxWidth: .infinity)
+                DonutChartView(
+                    slices: slices.enumerated().map { index, slice in
+                        (slice.fraction, statsPaletteColor(at: index))
+                    }
+                )
+                .frame(maxWidth: .infinity)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(slices.enumerated()), id: \.offset) { _, slice in
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(finishColor(slice.finish))
-                                .frame(width: 10, height: 10)
-
-                            Text(slice.finish.title)
-                                .font(AppTheme.captionFont)
-                                .foregroundStyle(AppTheme.primaryText)
-
-                            Spacer()
-
-                            Text("\(slice.count)")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(AppTheme.primaryText)
-
-                            Text("\(Int((slice.fraction * 100).rounded()))%")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(AppTheme.secondaryText)
-                        }
+                    ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
+                        StatsLegendRow(
+                            color: statsPaletteColor(at: index),
+                            title: slice.finish.title,
+                            count: slice.count,
+                            percentage: Int((slice.fraction * 100).rounded())
+                        )
                     }
                 }
                 .padding(.top, 20)
@@ -586,27 +602,10 @@ struct StatisticsView: View {
         }
     }
 
-    private func finishColor(_ finish: FinishType) -> Color {
-        switch finish {
-        case .condom:
-            Color(hex: "#FF3B6F")
-        case .inside:
-            Color(hex: "#5E5CE6")
-        case .inMouthSwallow:
-            Color(hex: "#30D158")
-        case .inMouthSpit:
-            Color(hex: "#0A84FF")
-        case .onFace:
-            Color(hex: "#FFD60A")
-        case .onChest:
-            Color(hex: "#FF6B35")
-        case .onBelly:
-            Color(hex: "#BF5AF2")
-        case .onBack:
-            Color(hex: "#00C7BE")
-        case .none:
-            Color.gray
-        }
+    private func statsPaletteColor(at index: Int) -> Color {
+        let palette = DayHeartColorStore.palette
+        guard !palette.isEmpty else { return AppTheme.accent }
+        return palette[index % palette.count]
     }
 
     private static let twoColumns = [
@@ -629,7 +628,7 @@ private struct PeriodOptionsSheet: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Свой период")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(AppFont.font(size: 16, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -782,7 +781,7 @@ private struct MonthlyEventsLineChart: View {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(dataPoints.enumerated()), id: \.offset) { index, point in
                     Text(xAxisLabel(for: index, label: point.label))
-                        .font(.system(size: 10, weight: .regular))
+                        .font(AppFont.font(size: 10, weight: .semibold))
                         .foregroundStyle(AppTheme.secondaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -906,8 +905,14 @@ private struct MonthlyEventsLineChart: View {
 
 // MARK: - Components
 
+private enum StatsLayout {
+    static let cardsSpacing: CGFloat = 10
+    static let cardPadding: CGFloat = 20
+    static let sectionCardPadding: CGFloat = 24
+}
+
 private enum StatsCardStyle {
-    static let cornerRadius: CGFloat = 24
+    static let cornerRadius: CGFloat = 32
 }
 
 private extension View {
@@ -920,16 +925,52 @@ private extension View {
 
 }
 
+private enum StatsGlowCorner {
+    case topLeading
+    case topTrailing
+}
+
+private struct StatsAccentGlow: View {
+    let color: Color
+    var corner: StatsGlowCorner = .topLeading
+
+    static let size: CGFloat = 200
+    static let blur: CGFloat = 64
+    static let opacity: CGFloat = 0.05
+
+    var body: some View {
+        Circle()
+            .fill(color.opacity(Self.opacity))
+            .frame(width: Self.size, height: Self.size)
+            .blur(radius: Self.blur)
+            .offset(
+                x: corner == .topTrailing ? Self.size / 2 : -Self.size / 2,
+                y: -Self.size / 2
+            )
+            .allowsHitTesting(false)
+    }
+}
+
 private struct StatsSectionCard<Content: View>: View {
     let title: String
+    var glowColor: Color?
+    var glowCorner: StatsGlowCorner = .topLeading
     @ViewBuilder let content: Content
 
     init(
         title: String,
+        glowColor: Color? = nil,
+        glowCorner: StatsGlowCorner = .topLeading,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
+        self.glowColor = glowColor
+        self.glowCorner = glowCorner
         self.content = content()
+    }
+
+    private var backgroundAlignment: Alignment {
+        glowCorner == .topTrailing ? .topTrailing : .topLeading
     }
 
     var body: some View {
@@ -938,15 +979,25 @@ private struct StatsSectionCard<Content: View>: View {
 
             content
         }
-        .padding(AppTheme.cardPadding)
+        .padding(StatsLayout.sectionCardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .statsGlassCardStyle()
+        .background(alignment: backgroundAlignment) {
+            ZStack(alignment: backgroundAlignment) {
+                AppTheme.subtleSurfaceBackground
+
+                if let glowColor {
+                    StatsAccentGlow(color: glowColor, corner: glowCorner)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: StatsCardStyle.cornerRadius, style: .continuous))
     }
 }
 
 private struct StatCard: View {
     let title: String
     let value: String
+    var accentColor: Color = AppTheme.accent
     var trailingEmoji: String?
 
     @ViewBuilder
@@ -954,34 +1005,93 @@ private struct StatCard: View {
         if let trailingEmoji {
             HStack(alignment: .center, spacing: 0) {
                 Text(value)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(AppFont.font(size: 28, weight: .bold))
                     .foregroundColor(.white)
 
                 Text(trailingEmoji)
-                    .font(.system(size: 14))
+                    .font(AppFont.font(size: 14, weight: .semibold))
                     .baselineOffset(-2)
                     .padding(.leading, 4)
             }
         } else {
             Text(value)
-                .font(.system(size: 28, weight: .bold))
+                .font(AppFont.font(size: 28, weight: .bold))
                 .foregroundColor(.white)
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 4) {
             AppTheme.sectionTitle(title)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Spacer()
-
             valueRow
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100, alignment: .leading)
-        .statsGlassCardStyle()
+        .padding(StatsLayout.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(alignment: .topLeading) {
+            ZStack(alignment: .topLeading) {
+                AppTheme.subtleSurfaceBackground
+                StatsAccentGlow(color: accentColor)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: StatsCardStyle.cornerRadius, style: .continuous))
+    }
+}
+
+private struct StorageStyleSegmentedBar: View {
+    let segments: [(fraction: Double, color: Color)]
+
+    private let barHeight: CGFloat = 20
+    private let minimumSegmentWidth: CGFloat = 2
+
+    var body: some View {
+        GeometryReader { geometry in
+            let visibleSegments = segments.filter { $0.fraction > 0 }
+            let gapCount = max(visibleSegments.count - 1, 0)
+            let totalGapWidth = CGFloat(gapCount) * SegmentedChartMetrics.segmentSpacing
+            let segmentableWidth = max(geometry.size.width - totalGapWidth, 0)
+
+            HStack(spacing: SegmentedChartMetrics.segmentSpacing) {
+                ForEach(Array(visibleSegments.enumerated()), id: \.offset) { _, segment in
+                    RoundedRectangle(cornerRadius: SegmentedChartMetrics.cornerRadius, style: .continuous)
+                        .fill(segment.color)
+                        .frame(width: max(segmentableWidth * segment.fraction, minimumSegmentWidth))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+        .frame(height: barHeight)
+    }
+}
+
+private struct StatsLegendRow: View {
+    let color: Color
+    let title: String
+    let count: Int
+    let percentage: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(color)
+                .frame(width: 10, height: 10)
+
+            Text(title)
+                .font(AppTheme.captionFont)
+                .foregroundStyle(AppTheme.primaryText)
+
+            Spacer()
+
+            Text("\(count)")
+                .font(AppFont.font(size: 13, weight: .bold))
+                .foregroundStyle(AppTheme.primaryText)
+
+            Text("\(percentage)%")
+                .font(AppFont.font(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+        }
     }
 }
 
@@ -999,7 +1109,7 @@ private struct HorizontalBarRow: View {
                     .lineLimit(1)
                 Spacer()
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AppFont.font(size: 13, weight: .semibold))
                     .foregroundStyle(AppTheme.secondaryText)
             }
 
@@ -1015,6 +1125,11 @@ private struct HorizontalBarRow: View {
             .frame(height: 8)
         }
     }
+}
+
+private enum SegmentedChartMetrics {
+    static let segmentSpacing: CGFloat = 2
+    static let cornerRadius: CGFloat = 6
 }
 
 private struct DonutChartView: View {
@@ -1058,7 +1173,7 @@ private struct TimeOfDayBar: View {
 
             VStack(spacing: 2) {
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AppFont.font(size: 13, weight: .semibold))
                     .foregroundStyle(isHighlighted ? AppTheme.accent : AppTheme.secondaryText)
 
                 RoundedRectangle(cornerRadius: 6)
@@ -1067,12 +1182,12 @@ private struct TimeOfDayBar: View {
             }
 
             Text(label)
-                .font(.system(size: 11, weight: .regular))
+                .font(AppFont.font(size: 11, weight: .semibold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(AppTheme.primaryText)
 
             Text(range)
-                .font(.system(size: 10, weight: .regular))
+                .font(AppFont.font(size: 10, weight: .semibold))
                 .foregroundStyle(AppTheme.secondaryText)
         }
         .frame(width: barWidth)

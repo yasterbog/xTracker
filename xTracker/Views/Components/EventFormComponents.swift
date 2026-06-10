@@ -9,7 +9,7 @@ enum EventFormStyle {
     static let unselectedLabel = Color(hex: "#C0C0C0")
     static let selectedLabel = AppTheme.primaryText
     static let selectedTintBackground = AppTheme.accent.opacity(0.12)
-    static let selectedBorderColor = AppTheme.accent.opacity(0.55)
+    static let selectedBorderColor = AppTheme.accent.opacity(0.65)
     static let selectedChipFill = Color.white
     static let selectedCheckboxFill = AppTheme.accent
     static let selectedCheckboxCheckmark = AppTheme.primaryText

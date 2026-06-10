@@ -16,16 +16,22 @@ struct xTrackerApp: App {
     @StateObject private var store = EventStore()
 
     init() {
+        AppFont.registerBundledFonts()
+        #if DEBUG
+        if !AppFont.isLoaded {
+            assertionFailure("[AppFont] Manrope is not available — check UIAppFonts and bundled TTFs.")
+        }
+        #endif
         FirebaseApp.configure()
 
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
         appearance.largeTitleTextAttributes = [
-            .font: UIFont.systemFont(ofSize: 34, weight: .black),
+            .font: AppFont.uiFont(size: 34, weight: .bold),
             .kern: -0.5,
         ]
         appearance.titleTextAttributes = [
-            .font: UIFont.systemFont(ofSize: 17, weight: .semibold),
+            .font: AppFont.uiFont(size: 17, weight: .semibold),
         ]
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance

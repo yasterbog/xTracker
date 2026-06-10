@@ -48,3 +48,24 @@ struct GlassBlurPlate: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+/// Same chrome as the floating tab bar, for arbitrary corner radii.
+struct FloatingChromePlate: View {
+    var cornerRadius: CGFloat
+
+    var body: some View {
+        Group {
+            if #available(iOS 26.0, *) {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.clear)
+                    .glassEffect(.regular.tint(AppTheme.background.opacity(0.35)))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(AppTheme.background.opacity(0.5))
+                    }
+            } else {
+                GlassBlurPlate(cornerRadius: cornerRadius)
+            }
+        }
+    }
+}

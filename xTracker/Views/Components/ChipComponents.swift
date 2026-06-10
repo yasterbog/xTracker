@@ -12,15 +12,15 @@ enum ChipMetrics {
     static let fontSize: CGFloat = 14
 
     static var chipTitle: Font {
-        .system(size: fontSize, weight: .regular, design: .default)
+        AppFont.font(size: fontSize, weight: .semibold)
     }
 
     static var chipButtonTitle: Font {
-        .system(size: fontSize, weight: .medium, design: .default)
+        AppFont.font(size: fontSize, weight: .semibold)
     }
 
     static var chipHeight: CGFloat {
-        UIFont.systemFont(ofSize: fontSize, weight: .regular).lineHeight + verticalPadding * 2
+        AppFont.uiFont(size: fontSize, weight: .semibold).lineHeight + verticalPadding * 2
     }
 }
 
@@ -212,7 +212,7 @@ struct ChipButton: View {
             HStack(spacing: icon == nil ? 0 : 4) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AppFont.font(size: 12, weight: .semibold))
                 }
                 Text(title)
                     .font(ChipMetrics.chipButtonTitle)
@@ -234,7 +234,7 @@ struct ChipCircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 14, weight: .medium))
+                .font(AppFont.font(size: 14, weight: .semibold))
                 .foregroundColor(AppTheme.primaryText)
                 .frame(width: ChipMetrics.chipHeight, height: ChipMetrics.chipHeight)
                 .background(EventFormStyle.surfaceBackground)

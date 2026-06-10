@@ -8,10 +8,10 @@ import UIKit
 
 enum EventActivitiesSummaryStyle {
     static let overflowTextColor = Color(hex: "#B3B3B3")
-    static let overflowFont = Font.system(size: 15, weight: .regular, design: .default)
-    static let overflowUIFont = UIFont.systemFont(ofSize: 15, weight: .regular)
-    static let emojiFont = Font.system(size: 15, weight: .regular, design: .default)
-    static let emojiUIFont = UIFont.systemFont(ofSize: 15, weight: .regular)
+    static let overflowFont = AppFont.font(size: 15, weight: .semibold)
+    static let overflowUIFont = AppFont.uiFont(size: 15, weight: .semibold)
+    static let emojiFont = AppFont.font(size: 15, weight: .semibold)
+    static let emojiUIFont = AppFont.uiFont(size: 15, weight: .semibold)
     static let emojiSpacing: CGFloat = 4
 }
 

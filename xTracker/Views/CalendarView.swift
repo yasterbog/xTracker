@@ -74,12 +74,11 @@ struct CalendarView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
-                .background(AppTheme.background)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .scrollIndicators(.hidden)
             .scrollContentBackground(.hidden)
-            .background(AppTheme.background)
+            .appScreenBackground()
             .navigationTitle(currentMonthYearString)
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -134,7 +133,7 @@ struct CalendarView: View {
         LazyVGrid(columns: Self.gridColumns, spacing: 2) {
             ForEach(weekdaySymbols, id: \.self) { symbol in
                 Text(symbol)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AppFont.font(size: 11, weight: .semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                     .frame(maxWidth: .infinity)
             }
@@ -154,7 +153,8 @@ struct CalendarView: View {
                         calendar: calendar,
                         isCurrentMonth: calendar.isDate(day, equalTo: month, toGranularity: .month),
                         isFuture: isFutureDate(day),
-                        eventCount: count
+                        eventCount: count,
+                        heartColors: heartColorsForDisplay(on: day, eventCount: count)
                     ) {
                         selectDay(day)
                     }
@@ -236,7 +236,7 @@ struct CalendarView: View {
     private var selectedDayHeader: some View {
         HStack(alignment: .center, spacing: 12) {
             Text(CalendarFormatters.selectedDayHeader(for: selectedDate, calendar: calendar))
-                .font(.system(size: 16, weight: .semibold))
+                .font(AppFont.font(size: 18, weight: .semibold))
                 .foregroundStyle(AppTheme.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -347,6 +347,11 @@ struct CalendarView: View {
         return store.eventCount(on: date)
     }
 
+    private func heartColorsForDisplay(on day: Date, eventCount: Int) -> [Color] {
+        guard eventCount > 0 else { return [] }
+        return store.heartColors(for: day)
+    }
+
     private func toggleActivityFilter(_ activity: ActivityType) {
         if selectedActivityFilters.contains(activity) {
             selectedActivityFilters.remove(activity)
@@ -398,6 +403,7 @@ private struct CalendarDayCell: View {
     let isCurrentMonth: Bool
     let isFuture: Bool
     let eventCount: Int
+    let heartColors: [Color]
     let onTap: () -> Void
 
     private var isToday: Bool {
@@ -435,18 +441,19 @@ private struct CalendarDayCell: View {
                     }
 
                     Text("\(calendar.component(.day, from: day))")
-                        .font(.system(size: 15, weight: dayNumberWeight))
+                        .font(AppFont.font(size: 15, weight: dayNumberWeight))
                         .foregroundStyle(dayNumberColor)
                 }
                 .frame(width: 32, height: 32)
                 .animation(nil, value: visualState)
 
                 eventIndicator
-                    .frame(height: 12)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Self.heartOuterSize)
                     .animation(nil, value: eventCount)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 49)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(height: 49, alignment: .top)
             .opacity(isFuture ? 0.3 : 1)
         }
         .buttonStyle(.plain)
@@ -472,7 +479,7 @@ private struct CalendarDayCell: View {
         if isSelected || isToday {
             return Font.Weight.semibold
         }
-        return Font.Weight.regular
+        return Font.Weight.semibold
     }
 
     private var dayNumberColor: Color {
@@ -492,33 +499,63 @@ private struct CalendarDayCell: View {
         }
     }
 
-    private static let eventHeartColor = Color(hex: "#FF3B6F")
+    private static let heartSize: CGFloat = 9
+    private static let heartBorderPadding: CGFloat = 2.5
+    private static let heartOuterSize: CGFloat = heartSize + heartBorderPadding * 2
+    private static let heartStackOffset: CGFloat = 6
+
+    private var dayHeartColor: Color {
+        heartColors.first ?? DayHeartColorStore.palette[0]
+    }
+
+    private var displayedHeartCount: Int {
+        min(eventCount, 3)
+    }
+
+    private func stackedHeartsWidth(for count: Int) -> CGFloat {
+        Self.heartOuterSize + CGFloat(max(count - 1, 0)) * Self.heartStackOffset
+    }
 
     @ViewBuilder
     private var eventIndicator: some View {
-        switch eventCount {
-        case 0:
+        if eventCount == 0 {
             Color.clear
-        case 1:
-            eventHeart
-        case 2:
-            HStack(spacing: 3) {
-                eventHeart
-                eventHeart
+        } else if displayedHeartCount == 1 {
+            eventHeart(color: dayHeartColor)
+        } else {
+            let count = displayedHeartCount
+            let width = stackedHeartsWidth(for: count)
+
+            ZStack {
+                ForEach(0..<count, id: \.self) { index in
+                    let startX = -width / 2 + Self.heartOuterSize / 2
+
+                    eventHeart(color: dayHeartColor)
+                        .offset(x: startX + CGFloat(index) * Self.heartStackOffset)
+                        .zIndex(Double(index))
+                }
             }
-        default:
-            Text("🔥")
-                .font(.system(size: 9, weight: .regular))
+            .frame(maxWidth: .infinity)
         }
     }
 
-    private var eventHeart: some View {
-        Image("heart_fill")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .foregroundColor(Self.eventHeartColor)
-            .frame(width: 9, height: 9)
+    private func eventHeart(color: Color) -> some View {
+        ZStack {
+            Image("heart_fill")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(AppTheme.background)
+                .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
+
+            Image("heart_fill")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(color)
+                .frame(width: Self.heartSize, height: Self.heartSize)
+        }
+        .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
     }
 }
 
@@ -547,7 +584,7 @@ private struct CalendarEventRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .center, spacing: 8) {
                     Text(Self.timeFormatter.string(from: event.date))
-                        .font(.system(size: 15, weight: .medium))
+                        .font(AppFont.font(size: 15, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
 
                     Spacer(minLength: 0)
@@ -562,7 +599,7 @@ private struct CalendarEventRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AppFont.font(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

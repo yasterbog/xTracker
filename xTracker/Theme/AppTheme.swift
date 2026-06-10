@@ -7,12 +7,13 @@ import SwiftUI
 import UIKit
 
 enum AppTheme {
-    static let background = Color(hex: "#121212")
-    /// Unified solid surface for cards/chips/controls.
-    static let surfaceFill = Color(hex: "#1D1B1B")
+    static let background = Color(hex: "#0D0C0C")
+    /// Unified surface for cards/chips/controls.
+    static let surfaceFill = Color(hex: "#1D1B1B").opacity(0.5)
     static let primaryText = Color.white
     static let secondaryText = Color.gray.opacity(0.5)
     static let sectionHeaderText = Color(hex: "#8A8A8E")
+    static let sectionTitleText = Color(hex: "#686467")
     static let cardBackground = Color(hex: "#121212")
     static let subtleSurfaceBackground = surfaceFill
     static let cardBorder = Color(hex: "#1F1F1F")
@@ -22,11 +23,12 @@ enum AppTheme {
     static let eventDot = Color(red: 0.35, green: 0.55, blue: 1.0)
     static let mutedDay = Color.white.opacity(0.25)
 
-    static let screenTitleFont = Font.system(size: 28, weight: .bold, design: .default)
-    static let bodyFont = Font.system(size: 16, weight: .regular, design: .default)
-    static let captionFont = Font.system(size: 13, weight: .regular, design: .default)
-    static let statsNumberFont = Font.system(size: 36, weight: .bold, design: .default)
-    static let sectionHeaderFont = Font.system(size: 11, weight: .semibold, design: .default)
+    static let screenTitleFont = AppFont.font(size: 28, weight: .bold)
+    static let bodyFont = AppFont.font(size: 16, weight: .semibold)
+    static let captionFont = AppFont.font(size: 13, weight: .semibold)
+    static let statsNumberFont = AppFont.font(size: 36, weight: .bold)
+    static let sectionHeaderFont = AppFont.font(size: 11, weight: .semibold)
+    static let sectionTitleFont = AppFont.font(size: 14, weight: .semibold)
     static let cardCornerRadius: CGFloat = 20
     static let compactCardCornerRadius: CGFloat = 16
     static let screenHorizontalPadding: CGFloat = 16
@@ -38,23 +40,21 @@ enum AppTheme {
     static func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(sectionHeaderFont)
-            .fontWeight(.semibold)
-            .kerning(-0.3)
+            .kerning(0)
             .foregroundStyle(sectionHeaderText)
     }
 
     static func sectionTitle(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(sectionHeaderFont)
-            .fontWeight(.semibold)
-            .kerning(-0.2)
-            .foregroundStyle(sectionHeaderText)
+        Text(title)
+            .font(sectionTitleFont)
+            .kerning(0)
+            .foregroundStyle(sectionTitleText)
     }
 
     static func applyLargeNavigationTitleAppearance() {
         let appearance = UINavigationBarAppearance()
         appearance.largeTitleTextAttributes = [
-            .font: UIFont.systemFont(ofSize: 34, weight: .black),
+            .font: AppFont.uiFont(size: 34, weight: .bold),
             .kern: -0.5,
             .foregroundColor: UIColor.white,
         ]
@@ -124,6 +124,10 @@ extension View {
       RoundedRectangle(cornerRadius: cornerRadius)
         .stroke(AppTheme.cardBorder, lineWidth: AppTheme.cardBorderWidth)
     )
+  }
+
+  func appScreenBackground() -> some View {
+    background(AppTheme.background.ignoresSafeArea())
   }
 
   func glassCardSurface(cornerRadius: CGFloat = 20) -> some View {

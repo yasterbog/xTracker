@@ -88,7 +88,7 @@ private struct EventRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(timeFormatter.string(from: event.date))
-                .font(.system(size: 16, weight: .regular))
+                .font(AppFont.font(size: 16, weight: .semibold))
                 .foregroundStyle(AppTheme.accent)
                 .frame(width: 52, alignment: .leading)
 

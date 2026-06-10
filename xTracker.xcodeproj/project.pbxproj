@@ -269,6 +269,7 @@
 				DEVELOPMENT_TEAM = LGLDS7A5JU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "xTracker-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Bond;
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Выберите фото для аватара в профиле.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -304,6 +305,7 @@
 				DEVELOPMENT_TEAM = LGLDS7A5JU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "xTracker-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Bond;
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Выберите фото для аватара в профиле.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

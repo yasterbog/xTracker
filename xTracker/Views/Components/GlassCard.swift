@@ -6,10 +6,15 @@
 import SwiftUI
 
 enum GlassCardMetrics {
-    static let cornerRadius: CGFloat = 24
+    static let cornerRadius: CGFloat = 32
+    static let eventCardCornerRadius: CGFloat = 24
 
     static var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
+    static var eventCardShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: eventCardCornerRadius, style: .continuous)
     }
 
     static var borderGradient: LinearGradient {
@@ -63,7 +68,7 @@ extension View {
 
     func eventCardChrome() -> some View {
         background(AppTheme.subtleSurfaceBackground)
-            .clipShape(GlassCardMetrics.shape)
+            .clipShape(GlassCardMetrics.eventCardShape)
     }
 
     func glassSelectableSurface(isSelected: Bool, selectedColor: Color = AppTheme.accent) -> some View {

@@ -26,7 +26,7 @@ private struct SheetInlineHeaderModifier<Trailing: View>: ViewModifier {
                     } label: {
                         Image(systemName: "xmark")
                     }
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.secondaryText)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {

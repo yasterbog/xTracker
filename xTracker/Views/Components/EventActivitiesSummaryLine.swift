@@ -7,7 +7,7 @@ import SwiftUI
 import UIKit
 
 enum EventActivitiesSummaryStyle {
-    static let overflowTextColor = Color(hex: "#B3B3B3")
+    static let overflowTextColor = AppTheme.secondaryText
     static let overflowFont = AppFont.font(size: 15, weight: .semibold)
     static let overflowUIFont = AppFont.uiFont(size: 15, weight: .semibold)
     static let emojiFont = AppFont.font(size: 15, weight: .semibold)

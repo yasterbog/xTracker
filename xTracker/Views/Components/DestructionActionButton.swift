@@ -26,7 +26,7 @@ struct DestructionActionButton: View {
                         .fill(Color.clear)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ScalePressButtonStyle(isEnabled: isEnabled))
         .disabled(!isEnabled)
         .animation(.easeInOut(duration: 0.2), value: isEnabled)
     }

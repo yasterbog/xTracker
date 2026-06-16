@@ -11,24 +11,24 @@ enum AppTheme {
     /// Unified surface for cards/chips/controls.
     static let surfaceFill = Color(hex: "#1D1B1B").opacity(0.5)
     static let primaryText = Color.white
-    static let secondaryText = Color.gray.opacity(0.5)
-    static let sectionHeaderText = Color(hex: "#8A8A8E")
-    static let sectionTitleText = Color(hex: "#686467")
+    static let secondaryText = Color(hex: "#787878")
+    static let sectionHeaderText = Color(hex: "#787878")
+    static let sectionTitleText = primaryText
     static let cardBackground = Color(hex: "#121212")
     static let subtleSurfaceBackground = surfaceFill
     static let cardBorder = Color(hex: "#1F1F1F")
     static let cardBorderWidth: CGFloat = 1
     static let separator = Color.white.opacity(0.06)
-    static let accent = Color(red: 255 / 255, green: 59 / 255, blue: 111 / 255)
+    static let accent = Color(hex: "#E82757")
     static let eventDot = Color(red: 0.35, green: 0.55, blue: 1.0)
-    static let mutedDay = Color.white.opacity(0.25)
+    static let mutedDay = Color.white.opacity(0.50)
 
     static let screenTitleFont = AppFont.font(size: 28, weight: .bold)
     static let bodyFont = AppFont.font(size: 16, weight: .semibold)
     static let captionFont = AppFont.font(size: 13, weight: .semibold)
     static let statsNumberFont = AppFont.font(size: 36, weight: .bold)
     static let sectionHeaderFont = AppFont.font(size: 11, weight: .semibold)
-    static let sectionTitleFont = AppFont.font(size: 14, weight: .semibold)
+    static let sectionTitleFont = AppFont.font(size: 15, weight: .semibold)
     static let cardCornerRadius: CGFloat = 20
     static let compactCardCornerRadius: CGFloat = 16
     static let screenHorizontalPadding: CGFloat = 16

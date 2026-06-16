@@ -28,6 +28,10 @@ struct AddEventView: View {
 
     private var isEditMode: Bool { eventToEdit != nil }
 
+    private var isPlannedEvent: Bool {
+        AppFeatures.eventPlannerEnabled && date > Date()
+    }
+
     private var ruCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ru_RU")
@@ -41,7 +45,8 @@ struct AddEventView: View {
         if let eventToEdit {
             initialDate = eventToEdit.date
         } else if let prefilledDate {
-            initialDate = Self.date(fromDay: prefilledDate, keepingTimeFrom: Date())
+            let candidate = Self.date(fromDay: prefilledDate, keepingTimeFrom: Date())
+            initialDate = AppFeatures.eventPlannerEnabled ? candidate : min(candidate, Date())
         } else {
             initialDate = Date()
         }
@@ -79,6 +84,12 @@ struct AddEventView: View {
             }
             .background(AppTheme.background)
             .sheetInlineHeader(isEditMode ? "Редактировать" : "Новое событие")
+            .onAppear {
+                clampDateToAllowedRangeIfNeeded()
+            }
+            .onChange(of: date) { _ in
+                clampDateToAllowedRangeIfNeeded()
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -95,7 +106,7 @@ struct AddEventView: View {
                     mode: .date,
                     chipTitle: EventDateFormatting.pillLabel(for: date, calendar: ruCalendar),
                     isExpanded: $isDatePickerExpanded,
-                    maximumDate: Date()
+                    maximumDate: AppFeatures.eventPlannerEnabled ? nil : Date()
                 )
                 .onChange(of: isDatePickerExpanded) { expanded in
                     if expanded { isTimePickerExpanded = false }
@@ -106,7 +117,7 @@ struct AddEventView: View {
                     mode: .time,
                     chipTitle: Self.timeFormatter.string(from: date),
                     isExpanded: $isTimePickerExpanded,
-                    maximumDate: Date()
+                    maximumDate: AppFeatures.eventPlannerEnabled ? nil : Date()
                 )
                 .onChange(of: isTimePickerExpanded) { expanded in
                     if expanded { isDatePickerExpanded = false }
@@ -232,7 +243,7 @@ struct AddEventView: View {
 
     private var createButton: some View {
         PrimaryActionButton(
-            title: isEditMode ? "Сохранить" : "Создать",
+            title: isEditMode ? "Сохранить" : (isPlannedEvent ? "Запланировать" : "Создать"),
             isEnabled: canSave,
             isLoading: isSaving,
             expandsHorizontally: false,
@@ -252,6 +263,18 @@ struct AddEventView: View {
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+
+    private func defaultStatus(for date: Date) -> EventStatus {
+        guard AppFeatures.eventPlannerEnabled else { return .completed }
+        return date > Date() ? .planned : .completed
+    }
+
+    private func clampDateToAllowedRangeIfNeeded() {
+        guard !AppFeatures.eventPlannerEnabled else { return }
+        if date > Date() {
+            date = Date()
+        }
+    }
 
     private static func date(fromDay day: Date, keepingTimeFrom timeSource: Date) -> Date {
         let calendar = Calendar.current
@@ -285,7 +308,8 @@ struct AddEventView: View {
                 finish: finish,
                 toys: toys,
                 notes: trimmedNotes,
-                createdBy: eventToEdit.createdBy
+                createdBy: eventToEdit.createdBy,
+                status: eventToEdit.status
             )
             Task {
                 await store.updateEventAndWaitForUploads(updated)
@@ -305,7 +329,8 @@ struct AddEventView: View {
                 finish: finish,
                 toys: toys,
                 notes: trimmedNotes,
-                createdBy: authService.userID.isEmpty ? "local-user" : authService.userID
+                createdBy: authService.userID.isEmpty ? "local-user" : authService.userID,
+                status: defaultStatus(for: date)
             )
             Task {
                 await store.addEventAndWaitForUploads(event)
@@ -390,7 +415,7 @@ private struct SelectableCard: View {
 
                 Text(title)
                     .font(AppFont.font(size: 13, weight: .bold))
-                    .foregroundStyle(isSelected ? accentColor : EventFormStyle.unselectedLabel)
+                    .foregroundStyle(isSelected ? AppTheme.primaryText : EventFormStyle.unselectedLabel)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -402,11 +427,11 @@ private struct SelectableCard: View {
                 Group {
                     if isSelected {
                         RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                            .fill(FormSelectionPalette.selectedBackground(accentColor))
+                            .fill(FormSelectionPalette.selectedBackground(AppTheme.accent))
                             .overlay(
                                 RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
                                     .strokeBorder(
-                                        FormSelectionPalette.selectedBorder(accentColor),
+                                        FormSelectionPalette.selectedBorder(AppTheme.accent),
                                         lineWidth: FormSelectionPalette.selectedBorderWidth
                                     )
                             )

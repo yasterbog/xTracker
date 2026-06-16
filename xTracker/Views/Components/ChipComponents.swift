@@ -66,15 +66,41 @@ struct FilterChip<Label: View>: View {
             label()
                 .padding(.horizontal, ChipMetrics.horizontalPadding)
                 .padding(.vertical, ChipMetrics.verticalPadding)
+                .background(
+                    Capsule()
+                        .fill(fillColor)
+                )
         }
-        .background(
-            Capsule()
-                .fill(fillColor)
-        )
         .contentShape(Capsule())
-        .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
+        .buttonStyle(FilterChipButtonStyle(isSelected: isSelected))
+    }
+}
+
+struct ScalePressButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.96
+    var isEnabled: Bool = true
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && isEnabled ? scale : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+private struct FilterChipButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(pressedScale(for: configuration))
+            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
+    }
+
+    private func pressedScale(for configuration: Configuration) -> CGFloat {
+        if configuration.isPressed { return 0.95 }
+        if isSelected { return 1.05 }
+        return 1
     }
 }
 
@@ -223,7 +249,15 @@ struct ChipButton: View {
             .background(AppTheme.subtleSurfaceBackground)
             .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ChipButtonStyle())
+    }
+}
+
+private struct ChipButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
@@ -240,6 +274,6 @@ struct ChipCircleButton: View {
                 .background(EventFormStyle.surfaceBackground)
                 .clipShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ScalePressButtonStyle(scale: 0.95))
     }
 }

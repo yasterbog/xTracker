@@ -73,10 +73,10 @@ struct DayEventsSheet: View {
         VStack(spacing: 12) {
             Image(systemName: "heart")
                 .font(.system(size: 40))
-                .foregroundColor(.gray)
+                .foregroundColor(AppTheme.secondaryText)
 
             Text("Нет событий")
-                .foregroundColor(.gray)
+                .foregroundColor(AppTheme.secondaryText)
         }
     }
 }

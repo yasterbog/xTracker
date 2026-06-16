@@ -71,7 +71,7 @@ struct EventDetailView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(AppFont.font(size: 16, weight: .semibold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.secondaryText)
             }
         }
     }
@@ -80,10 +80,10 @@ struct EventDetailView: View {
         VStack(spacing: 12) {
             Image(systemName: "heart")
                 .font(.system(size: 40))
-                .foregroundColor(.gray)
+                .foregroundColor(AppTheme.secondaryText)
 
             Text("Нет событий")
-                .foregroundColor(.gray)
+                .foregroundColor(AppTheme.secondaryText)
         }
     }
 
@@ -138,6 +138,11 @@ private struct EventDetailScrollContent: View {
     let event: Event
     let creatorProfile: UserAvatarProfile
 
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: EventStore
+
+    @State private var isMarkingCompleted = false
+
     private let sectionSpacing: CGFloat = 40
 
     private var ruCalendar: Calendar {
@@ -146,26 +151,82 @@ private struct EventDetailScrollContent: View {
         return calendar
     }
 
+    private var showsPlannedBanner: Bool {
+        AppFeatures.eventPlannerEnabled && event.status == .planned && event.date >= Date()
+    }
+
+    private var showsConfirmedFutureBanner: Bool {
+        AppFeatures.eventPlannerEnabled && event.status == .confirmed && event.date >= Date()
+    }
+
+    private var showsMarkCompletedButton: Bool {
+        AppFeatures.eventPlannerEnabled && event.status == .confirmed && event.date < Date()
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: sectionSpacing) {
-                creatorSection
-                dateTimeSection
-                activitiesSection
-                protectionSection
-                femaleOrgasmSection
-                finishSection
-                toysSection
-                if !event.notes.isEmpty {
-                    notesSection
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: sectionSpacing) {
+                    if showsPlannedBanner {
+                        EventStatusBadge(status: .planned)
+                    }
+
+                    if showsConfirmedFutureBanner {
+                        EventStatusBadge(status: .confirmed)
+                    }
+
+                    creatorSection
+                    dateTimeSection
+                    activitiesSection
+                    protectionSection
+                    femaleOrgasmSection
+                    finishSection
+                    toysSection
+                    if !event.notes.isEmpty {
+                        notesSection
+                    }
                 }
+                .padding(.horizontal, AppTheme.screenHorizontalPadding)
+                .padding(.top, 16)
+                .padding(.bottom, showsMarkCompletedButton ? 88 : 32)
             }
-            .padding(.horizontal, AppTheme.screenHorizontalPadding)
-            .padding(.top, 16)
-            .padding(.bottom, 32)
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
+
+            if showsMarkCompletedButton {
+                markCompletedButton
+            }
         }
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
+    }
+
+    private var markCompletedButton: some View {
+        PrimaryActionButton(
+            title: "Состоялось",
+            systemImage: "checkmark",
+            isLoading: isMarkingCompleted,
+            expandsHorizontally: false,
+            action: markCompleted
+        )
+        .primaryActionButtonFloatingShadow()
+        .padding(.trailing, AppTheme.screenHorizontalPadding)
+        .padding(.bottom, 12)
+    }
+
+    private func markCompleted() {
+        guard !isMarkingCompleted else { return }
+
+        var updated = event
+        updated.status = .completed
+        isMarkingCompleted = true
+        UXFeedback.mediumImpact()
+
+        Task {
+            await store.updateEventAndWaitForUploads(updated)
+            await MainActor.run {
+                isMarkingCompleted = false
+                dismiss()
+            }
+        }
     }
 
     private var creatorSection: some View {
@@ -287,7 +348,7 @@ private struct EventDetailDisplayCard: View {
 
             Text(title)
                 .font(AppFont.font(size: 13, weight: .bold))
-                .foregroundStyle(accentColor)
+                .foregroundStyle(AppTheme.primaryText)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -297,11 +358,11 @@ private struct EventDetailDisplayCard: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
-                .fill(FormSelectionPalette.selectedBackground(accentColor))
+                .fill(FormSelectionPalette.selectedBackground(AppTheme.accent))
                 .overlay(
                     RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
                         .strokeBorder(
-                            FormSelectionPalette.selectedBorder(accentColor),
+                            FormSelectionPalette.selectedBorder(AppTheme.accent),
                             lineWidth: FormSelectionPalette.selectedBorderWidth
                         )
                 )

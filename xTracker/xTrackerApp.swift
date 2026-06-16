@@ -44,6 +44,9 @@ struct xTrackerApp: App {
                 .environmentObject(authService)
                 .environmentObject(userService)
                 .task {
+                    if AppFeatures.eventPlannerEnabled {
+                        await NotificationService.shared.requestAuthorizationIfNeeded()
+                    }
                     await authService.bootstrap()
                     if !authService.pairID.isEmpty {
                         store.setPairID(authService.pairID)
@@ -53,6 +56,9 @@ struct xTrackerApp: App {
                         userID: authService.userID,
                         partnerID: authService.partnerID
                     )
+                    if AppFeatures.eventPlannerEnabled {
+                        NotificationService.shared.startListening(forUserID: authService.userID)
+                    }
                 }
                 .onChange(of: authService.pairID) { newPairID in
                     store.setPairID(newPairID)
@@ -62,12 +68,15 @@ struct xTrackerApp: App {
                         partnerID: authService.partnerID
                     )
                 }
-                .onChange(of: authService.userID) { _ in
+                .onChange(of: authService.userID) { newUserID in
                     userService.startListeners(
                         pairID: authService.pairID,
                         userID: authService.userID,
                         partnerID: authService.partnerID
                     )
+                    if AppFeatures.eventPlannerEnabled {
+                        NotificationService.shared.startListening(forUserID: newUserID)
+                    }
                 }
                 .onChange(of: authService.partnerID) { _ in
                     userService.startListeners(

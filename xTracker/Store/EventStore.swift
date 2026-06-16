@@ -13,11 +13,8 @@ final class EventStore: ObservableObject {
     @Published private(set) var events: [Event] = []
     @Published var pairID: String = ""
 
-    let dayHeartColors = DayHeartColorStore()
-
     private let firestoreService: FirestoreService
     private var eventsListener: ListenerRegistration?
-    private var cancellables = Set<AnyCancellable>()
     private let calendar = Calendar.current
 
     private enum Keys {
@@ -31,13 +28,8 @@ final class EventStore: ObservableObject {
             ?? UserDefaults.standard.string(forKey: Keys.legacyPairID)
             ?? ""
 
-        dayHeartColors.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
         if pairID.isEmpty {
             events = MockEventData.allEvents
-            reconcileHeartColors()
         } else {
             startListening()
         }
@@ -61,15 +53,10 @@ final class EventStore: ObservableObject {
         }
     }
 
-    func heartColors(for date: Date) -> [Color] {
-        dayHeartColors.colors(for: date, calendar: calendar)
-    }
-
     func addEvent(_ event: Event) {
         if pairID.isEmpty {
             events.append(event)
             sortEvents()
-            syncHeartColors(for: event.date)
             return
         }
 
@@ -86,7 +73,6 @@ final class EventStore: ObservableObject {
         if pairID.isEmpty {
             events.append(event)
             sortEvents()
-            syncHeartColors(for: event.date)
             return
         }
 
@@ -99,9 +85,7 @@ final class EventStore: ObservableObject {
 
     func deleteEvent(_ event: Event) {
         if pairID.isEmpty {
-            let day = calendar.startOfDay(for: event.date)
             events.removeAll { $0.id == event.id }
-            syncHeartColors(for: day)
             return
         }
 
@@ -153,8 +137,37 @@ final class EventStore: ObservableObject {
             .sorted { $0.date < $1.date }
     }
 
+    func calendarEvents(on date: Date) -> [Event] {
+        events(on: date).filter(\.isVisibleOnCalendar)
+    }
+
     func eventCount(on date: Date) -> Int {
         events(on: date).count
+    }
+
+    func calendarEventCount(on date: Date) -> Int {
+        calendarEvents(on: date).count
+    }
+
+    func completedEventCount(on date: Date) -> Int {
+        events(on: date).filter { $0.status == .completed }.count
+    }
+
+    func partnerPlannedEvents(currentUserID: String, partnerID: String) -> [Event] {
+        guard AppFeatures.eventPlannerEnabled else { return [] }
+        guard !currentUserID.isEmpty, !partnerID.isEmpty else { return [] }
+
+        return events
+            .filter { event in
+                event.status == .planned
+                    && event.createdBy == partnerID
+                    && event.createdBy != currentUserID
+            }
+            .sorted { $0.date < $1.date }
+    }
+
+    func hasPartnerPlannedEvents(currentUserID: String, partnerID: String) -> Bool {
+        !partnerPlannedEvents(currentUserID: currentUserID, partnerID: partnerID).isEmpty
     }
 
     func resetToLocalMockData() {
@@ -162,9 +175,7 @@ final class EventStore: ObservableObject {
         pairID = ""
         UserDefaults.standard.removeObject(forKey: Keys.savedPairID)
         UserDefaults.standard.removeObject(forKey: Keys.legacyPairID)
-        dayHeartColors.clearAll()
         events = MockEventData.allEvents
-        reconcileHeartColors()
     }
 
     private func startListening() {
@@ -174,7 +185,6 @@ final class EventStore: ObservableObject {
         eventsListener = firestoreService.listenToEvents(pairID: pairID) { [weak self] firestoreEvents in
             Task { @MainActor in
                 self?.events = firestoreEvents
-                self?.reconcileHeartColors()
             }
         }
     }
@@ -186,14 +196,6 @@ final class EventStore: ObservableObject {
 
     private func sortEvents() {
         events.sort { $0.date < $1.date }
-    }
-
-    private func syncHeartColors(for date: Date) {
-        dayHeartColors.syncDay(date, eventCount: eventCount(on: date), calendar: calendar)
-    }
-
-    private func reconcileHeartColors() {
-        dayHeartColors.reconcile(with: events, calendar: calendar)
     }
 
     deinit {

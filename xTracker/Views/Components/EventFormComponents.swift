@@ -6,7 +6,7 @@
 import SwiftUI
 
 enum EventFormStyle {
-    static let unselectedLabel = Color(hex: "#C0C0C0")
+    static let unselectedLabel = AppTheme.secondaryText
     static let selectedLabel = AppTheme.primaryText
     static let selectedTintBackground = AppTheme.accent.opacity(0.12)
     static let selectedBorderColor = AppTheme.accent.opacity(0.65)

@@ -25,7 +25,7 @@ enum FormSelectionPalette {
         color.opacity(0.12)
     }
 
-    static let selectedBorderWidth: CGFloat = 2
+    static let selectedBorderWidth: CGFloat = 1
 
     static func selectedBorder(_ color: Color) -> Color {
         color.opacity(0.65)

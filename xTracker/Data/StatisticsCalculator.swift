@@ -108,7 +108,7 @@ struct StatisticsCalculator {
         referenceDate: Date = Date(),
         calendar: Calendar = .current
     ) {
-        self.events = events
+        self.events = events.filter { $0.status == .completed }
         self.period = period
         self.activityFilter = activityFilter
         self.customStartDate = customStartDate

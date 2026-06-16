@@ -10,14 +10,17 @@ struct CalendarView: View {
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var userService: UserService
-    @State private var anchorMonth = Calendar.current.startOfMonth(for: Date())
-    @State private var monthOffset = 0
+    @State private var displayedMonth = Calendar.current.startOfMonth(for: Date())
+    @State private var monthPageIndex = 1
+    @State private var monthRecenterTask: Task<Void, Never>?
     @State private var selectedDate = CalendarView.initialSelectedDate
     @State private var showAddEvent = false
     @State private var selectedEvent: Event?
     @State private var eventToDelete: Event?
     @State private var showDeleteAlert = false
+    @State private var swipingEventID: String?
     @State private var selectedActivityFilters: Set<ActivityType> = []
+    @State private var showNotifications = false
 
     private var hasActiveActivityFilter: Bool {
         !selectedActivityFilters.isEmpty
@@ -43,23 +46,39 @@ struct CalendarView: View {
             return []
         }
 
-        let events = store.events
+        var events = store.events
             .filter { $0.date >= dayStart && $0.date < dayEnd }
+            .filter(\.isVisibleOnCalendar)
             .sorted { $0.date > $1.date }
 
         guard hasActiveActivityFilter else { return events }
-        return events.filter(eventMatchesFilter)
-    }
 
-    private var displayedMonth: Date {
-        calendar.date(byAdding: .month, value: monthOffset, to: anchorMonth) ?? anchorMonth
+        return events
+            .filter { $0.status == .completed }
+            .filter(eventMatchesFilter)
     }
 
     private var currentMonthYearString: String {
-        CalendarFormatters.monthYear(from: displayedMonth)
+        CalendarFormatters.monthYear(from: visibleMonth)
     }
 
-    private static let monthPageRange = Array(-60...60)
+    private var visibleMonth: Date {
+        switch monthPageIndex {
+        case 0:
+            calendar.date(byAdding: .month, value: -1, to: displayedMonth) ?? displayedMonth
+        case 2:
+            calendar.date(byAdding: .month, value: 1, to: displayedMonth) ?? displayedMonth
+        default:
+            displayedMonth
+        }
+    }
+
+    private var plannerNotificationsBinding: Binding<Bool> {
+        Binding(
+            get: { AppFeatures.eventPlannerEnabled && showNotifications },
+            set: { showNotifications = $0 }
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -82,6 +101,16 @@ struct CalendarView: View {
             .navigationTitle(currentMonthYearString)
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                if AppFeatures.eventPlannerEnabled {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        notificationsButton
+                    }
+                }
+            }
+            .navigationDestination(isPresented: plannerNotificationsBinding) {
+                NotificationsView()
+            }
         }
         .sheet(isPresented: $showAddEvent) {
             AddEventView(prefilledDate: selectedDate)
@@ -114,15 +143,47 @@ struct CalendarView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 2)
 
-            TabView(selection: $monthOffset) {
-                ForEach(Self.monthPageRange, id: \.self) { offset in
-                    calendarGrid(for: monthDate(forOffset: offset))
-                        .padding(.horizontal, 6)
-                        .tag(offset)
-                }
+            TabView(selection: $monthPageIndex) {
+                monthGrid(monthOffset: -1)
+                    .padding(.horizontal, 6)
+                    .tag(0)
+
+                monthGrid(monthOffset: 0)
+                    .padding(.horizontal, 6)
+                    .tag(1)
+
+                monthGrid(monthOffset: 1)
+                    .padding(.horizontal, 6)
+                    .tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: Self.calendarGridHeight)
+            .onChange(of: monthPageIndex) { newIndex in
+                scheduleMonthRecenter(for: newIndex)
+            }
+        }
+    }
+
+    private static let monthPageTransitionDuration: Duration = .milliseconds(350)
+
+    private func scheduleMonthRecenter(for pageIndex: Int) {
+        guard pageIndex != 1 else { return }
+
+        let delta = pageIndex == 0 ? -1 : 1
+        monthRecenterTask?.cancel()
+        monthRecenterTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.monthPageTransitionDuration)
+            guard !Task.isCancelled else { return }
+            guard monthPageIndex == pageIndex else { return }
+
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                if let newMonth = calendar.date(byAdding: .month, value: delta, to: displayedMonth) {
+                    displayedMonth = newMonth
+                }
+                monthPageIndex = 1
+            }
         }
     }
 
@@ -140,31 +201,18 @@ struct CalendarView: View {
         }
     }
 
-    private func calendarGrid(for month: Date) -> some View {
-        let days = monthDays(for: month)
+    private func monthGrid(monthOffset: Int) -> some View {
+        let month = calendar.date(byAdding: .month, value: monthOffset, to: displayedMonth) ?? displayedMonth
 
-        return LazyVGrid(columns: Self.gridColumns, spacing: 4) {
-            ForEach(days.indices, id: \.self) { index in
-                if let day = days[index] {
-                    let count = displayEventCount(on: day)
-                    CalendarDayCell(
-                        day: day,
-                        selectedDate: selectedDate,
-                        calendar: calendar,
-                        isCurrentMonth: calendar.isDate(day, equalTo: month, toGranularity: .month),
-                        isFuture: isFutureDate(day),
-                        eventCount: count,
-                        heartColors: heartColorsForDisplay(on: day, eventCount: count)
-                    ) {
-                        selectDay(day)
-                    }
-                    .id("\(day.timeIntervalSinceReferenceDate)-\(count)")
-                } else {
-                    Color.clear
-                        .frame(height: 49)
-                }
-            }
-        }
+        return CalendarMonthGrid(
+            month: month,
+            days: monthDays(for: month),
+            indicatorsByDay: indicatorsByDay(in: month),
+            selectedDate: selectedDate,
+            calendar: calendar,
+            blocksFutureDates: blocksFutureDates,
+            onSelectDay: selectDay
+        )
     }
 
     // MARK: - Monthly summary
@@ -208,7 +256,7 @@ struct CalendarView: View {
     }
 
     private var monthlyActivityCounts: [(activity: ActivityType, count: Int)] {
-        let monthEvents = eventsInMonth(displayedMonth)
+        let monthEvents = eventsInMonth(displayedMonth).filter { $0.status == .completed }
         return ActivityType.allCases.compactMap { activity in
             let count = monthEvents.filter { $0.activities.contains(activity) }.count
             return count > 0 ? (activity, count) : nil
@@ -253,15 +301,19 @@ struct CalendarView: View {
     private var eventsList: some View {
         List {
             ForEach(selectedDayEvents) { event in
-                Button {
-                    selectedEvent = event
-                } label: {
-                    CalendarEventRow(
-                        event: event,
-                        creatorProfile: creatorProfile(for: event)
-                    )
+                CalendarEventRow(
+                    event: event,
+                    creatorProfile: creatorProfile(for: event)
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .eventCardChrome(isVisible: swipingEventID == event.id)
+                .background {
+                    SwipeInteractionObserver(isSwiping: swipeBinding(for: event.id))
                 }
-                .buttonStyle(.plain)
+                .onTapGesture {
+                    selectedEvent = event
+                }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
                         eventToDelete = event
@@ -273,14 +325,7 @@ struct CalendarView: View {
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(
-                    EdgeInsets(
-                        top: 4,
-                        leading: AppTheme.screenHorizontalPadding,
-                        bottom: 4,
-                        trailing: AppTheme.screenHorizontalPadding
-                    )
-                )
+                .listRowInsets(.init())
             }
         }
         .listStyle(.plain)
@@ -292,16 +337,78 @@ struct CalendarView: View {
         .padding(.top, 8)
     }
 
-    /// Matches current CalendarEventRow + List row insets.
-    /// Keeps bottom gap aligned with Statistics screen.
-    private static let eventRowEstimatedHeight: CGFloat = 92
+    private func swipeBinding(for eventID: String) -> Binding<Bool> {
+        Binding(
+            get: { swipingEventID == eventID },
+            set: { isSwiping in
+                if isSwiping {
+                    swipingEventID = eventID
+                } else if swipingEventID == eventID {
+                    swipingEventID = nil
+                }
+            }
+        )
+    }
+
+    private static let eventRowEstimatedHeight: CGFloat = 84
 
     // MARK: - Helpers
 
     private let weekdaySymbols = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
-    private func monthDate(forOffset offset: Int) -> Date {
-        calendar.date(byAdding: .month, value: offset, to: anchorMonth) ?? anchorMonth
+    private static let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+
+    private func indicatorsByDay(in month: Date) -> [Date: [CalendarDayIndicator]] {
+        guard let interval = calendar.dateInterval(of: .month, for: month) else { return [:] }
+
+        var eventsByDay: [Date: [Event]] = [:]
+        for event in store.events where event.isVisibleOnCalendar && interval.contains(event.date) {
+            let day = calendar.startOfDay(for: event.date)
+            eventsByDay[day, default: []].append(event)
+        }
+
+        var indicatorsByDay: [Date: [CalendarDayIndicator]] = [:]
+        indicatorsByDay.reserveCapacity(eventsByDay.count)
+
+        for (day, events) in eventsByDay {
+            let visibleEvents: [Event]
+            if hasActiveActivityFilter {
+                visibleEvents = events
+                    .filter { $0.status == .completed }
+                    .filter(eventMatchesFilter)
+            } else {
+                visibleEvents = events
+            }
+
+            let indicators = makeIndicators(from: visibleEvents)
+            if !indicators.isEmpty {
+                indicatorsByDay[day] = indicators
+            }
+        }
+
+        return indicatorsByDay
+    }
+
+    private func makeIndicators(from events: [Event]) -> [CalendarDayIndicator] {
+        var indicators: [CalendarDayIndicator] = []
+
+        let completed = events.filter { $0.status == .completed }
+        if completed.count >= 3 {
+            indicators.append(.fire)
+        } else {
+            indicators.append(contentsOf: Array(repeating: .completed, count: completed.count))
+        }
+
+        if AppFeatures.eventPlannerEnabled {
+            if events.contains(where: { $0.status == .confirmed }) {
+                indicators.append(.confirmed)
+            }
+            if events.contains(where: { $0.status == .planned }) {
+                indicators.append(.planned)
+            }
+        }
+
+        return Array(indicators.prefix(3))
     }
 
     private func monthDays(for month: Date) -> [Date?] {
@@ -335,21 +442,46 @@ struct CalendarView: View {
         return store.events.filter { interval.contains($0.date) }
     }
 
+    private var hasPartnerPlannedNotifications: Bool {
+        store.hasPartnerPlannedEvents(
+            currentUserID: authService.userID,
+            partnerID: authService.partnerID
+        )
+    }
+
+    private var notificationsButton: some View {
+        Button {
+            showNotifications = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: hasPartnerPlannedNotifications ? "bell.badge" : "bell")
+                    .font(AppFont.font(size: 18, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
+
+                if hasPartnerPlannedNotifications {
+                    Circle()
+                        .fill(AppTheme.accent)
+                        .frame(width: 8, height: 8)
+                        .offset(x: 2, y: -2)
+                }
+            }
+            .frame(width: 32, height: 32)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Уведомления")
+    }
+
     private func eventMatchesFilter(_ event: Event) -> Bool {
         guard hasActiveActivityFilter else { return true }
         return selectedActivityFilters.isSubset(of: Set(event.activities))
     }
 
-    private func displayEventCount(on date: Date) -> Int {
-        if hasActiveActivityFilter {
-            return store.events(on: date).filter(eventMatchesFilter).count
-        }
-        return store.eventCount(on: date)
+    private var blocksFutureDates: Bool {
+        !AppFeatures.eventPlannerEnabled
     }
 
-    private func heartColorsForDisplay(on day: Date, eventCount: Int) -> [Color] {
-        guard eventCount > 0 else { return [] }
-        return store.heartColors(for: day)
+    private func isFutureDate(_ day: Date) -> Bool {
+        calendar.startOfDay(for: day) > calendar.startOfDay(for: Date())
     }
 
     private func toggleActivityFilter(_ activity: ActivityType) {
@@ -361,12 +493,8 @@ struct CalendarView: View {
     }
 
     private func selectDay(_ day: Date) {
-        guard !isFutureDate(day) else { return }
+        guard !blocksFutureDates || !isFutureDate(day) else { return }
         selectedDate = calendar.startOfDay(for: day)
-    }
-
-    private func isFutureDate(_ date: Date) -> Bool {
-        calendar.startOfDay(for: date) > calendar.startOfDay(for: Date())
     }
 
     private func creatorProfile(for event: Event) -> UserAvatarProfile {
@@ -390,21 +518,66 @@ struct CalendarView: View {
 
         return UserAvatarProfile(userID: event.createdBy, name: "Участник", avatarBase64: nil, avatarURL: nil)
     }
+}
+
+// MARK: - Month Grid
+
+private struct CalendarMonthGrid: View {
+    let month: Date
+    let days: [Date?]
+    let indicatorsByDay: [Date: [CalendarDayIndicator]]
+    let selectedDate: Date
+    let calendar: Calendar
+    let blocksFutureDates: Bool
+    let onSelectDay: (Date) -> Void
 
     private static let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+
+    var body: some View {
+        LazyVGrid(columns: Self.gridColumns, spacing: 4) {
+            ForEach(days.indices, id: \.self) { index in
+                if let day = days[index] {
+                    CalendarDayCell(
+                        day: day,
+                        selectedDate: selectedDate,
+                        calendar: calendar,
+                        isCurrentMonth: calendar.isDate(day, equalTo: month, toGranularity: .month),
+                        isFutureDay: blocksFutureDates && isFutureDate(day),
+                        dayIndicators: indicatorsByDay[day] ?? [],
+                        onTap: { onSelectDay(day) }
+                    )
+                } else {
+                    Color.clear
+                        .frame(height: 49)
+                }
+            }
+        }
+    }
+
+    private func isFutureDate(_ day: Date) -> Bool {
+        calendar.startOfDay(for: day) > calendar.startOfDay(for: Date())
+    }
 }
 
 // MARK: - Day Cell
+
+private enum CalendarDayIndicator: Equatable {
+    case completed
+    case planned
+    case confirmed
+    case fire
+}
 
 private struct CalendarDayCell: View {
     let day: Date
     let selectedDate: Date
     let calendar: Calendar
     let isCurrentMonth: Bool
-    let isFuture: Bool
-    let eventCount: Int
-    let heartColors: [Color]
+    let isFutureDay: Bool
+    let dayIndicators: [CalendarDayIndicator]
     let onTap: () -> Void
+
+    private static let statusHeartColor = Color(hex: "#611D2F")
 
     private var isToday: Bool {
         calendar.isDateInToday(day)
@@ -435,11 +608,6 @@ private struct CalendarDayCell: View {
                     Circle()
                         .fill(dayCircleFill)
 
-                    if showsTodayRing {
-                        Circle()
-                            .strokeBorder(AppTheme.accent, lineWidth: 2)
-                    }
-
                     Text("\(calendar.component(.day, from: day))")
                         .font(AppFont.font(size: 15, weight: dayNumberWeight))
                         .foregroundStyle(dayNumberColor)
@@ -450,14 +618,14 @@ private struct CalendarDayCell: View {
                 eventIndicator
                     .frame(maxWidth: .infinity)
                     .frame(height: Self.heartOuterSize)
-                    .animation(nil, value: eventCount)
+                    .animation(nil, value: dayIndicators)
             }
             .frame(maxWidth: .infinity, alignment: .top)
             .frame(height: 49, alignment: .top)
-            .opacity(isFuture ? 0.3 : 1)
         }
         .buttonStyle(.plain)
-        .disabled(isFuture)
+        .disabled(isFutureDay)
+        .opacity(isFutureDay ? 0.55 : 1)
     }
 
     private var dayCircleFill: Color {
@@ -469,10 +637,6 @@ private struct CalendarDayCell: View {
         case .today, .normal:
             return .clear
         }
-    }
-
-    private var showsTodayRing: Bool {
-        visualState == .today
     }
 
     private var dayNumberWeight: Font.Weight {
@@ -489,6 +653,9 @@ private struct CalendarDayCell: View {
         case .selected:
             return Color.black
         case .today, .normal:
+            if isFutureDay {
+                return AppTheme.mutedDay
+            }
             if !isCurrentMonth {
                 return AppTheme.mutedDay
             }
@@ -504,33 +671,20 @@ private struct CalendarDayCell: View {
     private static let heartOuterSize: CGFloat = heartSize + heartBorderPadding * 2
     private static let heartStackOffset: CGFloat = 6
 
-    private var dayHeartColor: Color {
-        heartColors.first ?? DayHeartColorStore.palette[0]
-    }
-
-    private var displayedHeartCount: Int {
-        min(eventCount, 3)
-    }
-
-    private func stackedHeartsWidth(for count: Int) -> CGFloat {
-        Self.heartOuterSize + CGFloat(max(count - 1, 0)) * Self.heartStackOffset
-    }
-
     @ViewBuilder
     private var eventIndicator: some View {
-        if eventCount == 0 {
+        if dayIndicators.isEmpty {
             Color.clear
-        } else if displayedHeartCount == 1 {
-            eventHeart(color: dayHeartColor)
+        } else if dayIndicators.count == 1, let indicator = dayIndicators.first {
+            indicatorView(for: indicator)
         } else {
-            let count = displayedHeartCount
-            let width = stackedHeartsWidth(for: count)
+            let width = stackedHeartsWidth(for: dayIndicators.count)
 
             ZStack {
-                ForEach(0..<count, id: \.self) { index in
+                ForEach(Array(dayIndicators.enumerated()), id: \.offset) { index, indicator in
                     let startX = -width / 2 + Self.heartOuterSize / 2
 
-                    eventHeart(color: dayHeartColor)
+                    indicatorView(for: indicator)
                         .offset(x: startX + CGFloat(index) * Self.heartStackOffset)
                         .zIndex(Double(index))
                 }
@@ -539,7 +693,27 @@ private struct CalendarDayCell: View {
         }
     }
 
-    private func eventHeart(color: Color) -> some View {
+    private func stackedHeartsWidth(for count: Int) -> CGFloat {
+        Self.heartOuterSize + CGFloat(max(count - 1, 0)) * Self.heartStackOffset
+    }
+
+    @ViewBuilder
+    private func indicatorView(for indicator: CalendarDayIndicator) -> some View {
+        switch indicator {
+        case .completed:
+            completedHeart
+        case .planned:
+            plannedHeart
+        case .confirmed:
+            confirmedHeart
+        case .fire:
+            Text("🔥")
+                .font(.system(size: 9))
+                .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
+        }
+    }
+
+    private var completedHeart: some View {
         ZStack {
             Image("heart_fill")
                 .renderingMode(.template)
@@ -552,7 +726,45 @@ private struct CalendarDayCell: View {
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-                .foregroundColor(color)
+                .foregroundColor(AppTheme.accent)
+                .frame(width: Self.heartSize, height: Self.heartSize)
+        }
+        .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
+    }
+
+    private var plannedHeart: some View {
+        ZStack {
+            Image("heart_fill")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(AppTheme.background)
+                .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
+
+            Image("heart_dashed")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(Self.statusHeartColor)
+                .frame(width: Self.heartSize, height: Self.heartSize)
+        }
+        .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
+    }
+
+    private var confirmedHeart: some View {
+        ZStack {
+            Image("heart_fill")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(AppTheme.background)
+                .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
+
+            Image("heart_fill")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(Self.statusHeartColor)
                 .frame(width: Self.heartSize, height: Self.heartSize)
         }
         .frame(width: Self.heartOuterSize, height: Self.heartOuterSize)
@@ -587,6 +799,10 @@ private struct CalendarEventRow: View {
                         .font(AppFont.font(size: 15, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
 
+                    if event.showsFutureStatusBadge {
+                        EventStatusBadge(status: event.status, style: .compact)
+                    }
+
                     Spacer(minLength: 0)
 
                     if event.hasNotes {
@@ -602,10 +818,120 @@ private struct CalendarEventRow: View {
                 .font(AppFont.font(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.secondaryText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 18)
+        .padding(.horizontal, AppTheme.screenHorizontalPadding)
         .padding(.vertical, 18)
-        .eventCardChrome()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+}
+
+private enum SwipeRevealMetrics {
+    static let trashVisibleOffset: CGFloat = 28
+}
+
+private struct SwipeInteractionObserver: UIViewRepresentable {
+    @Binding var isSwiping: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isSwiping: $isSwiping)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        context.coordinator.hostView = view
+        context.coordinator.startObservingIfNeeded()
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.isSwiping = $isSwiping
+        context.coordinator.hostView = uiView
+    }
+
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        coordinator.stopObserving()
+    }
+
+    final class Coordinator {
+        var isSwiping: Binding<Bool>
+        weak var hostView: UIView?
+        private var displayLink: CADisplayLink?
+
+        init(isSwiping: Binding<Bool>) {
+            self.isSwiping = isSwiping
+        }
+
+        func startObservingIfNeeded() {
+            guard displayLink == nil else { return }
+            let link = CADisplayLink(target: self, selector: #selector(tick))
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+
+        func stopObserving() {
+            displayLink?.invalidate()
+            displayLink = nil
+        }
+
+        @objc private func tick() {
+            guard let hostView else { return }
+
+            let trashVisible = Self.isTrashVisible(hostView: hostView)
+            guard trashVisible != isSwiping.wrappedValue else { return }
+            isSwiping.wrappedValue = trashVisible
+        }
+
+        private static func isTrashVisible(hostView: UIView) -> Bool {
+            swipeOffset(from: hostView) < -SwipeRevealMetrics.trashVisibleOffset
+        }
+
+        private static func swipeOffset(from view: UIView) -> CGFloat {
+            var minOffset: CGFloat = 0
+            var current: UIView? = view
+
+            while let currentView = current {
+                minOffset = min(minOffset, horizontalOffset(of: currentView))
+                if currentView is UITableViewCell || currentView is UICollectionViewCell {
+                    break
+                }
+                current = currentView.superview
+            }
+
+            return minOffset
+        }
+
+        private static func horizontalOffset(of view: UIView) -> CGFloat {
+            if view.transform.tx != 0 {
+                return view.transform.tx
+            }
+            return view.frame.minX
+        }
+    }
+}
+
+private extension UIView {
+    var enclosingTableViewCell: UITableViewCell? {
+        var view: UIView? = self
+        while let current = view {
+            if let cell = current as? UITableViewCell {
+                return cell
+            }
+            view = current.superview
+        }
+        return nil
+    }
+
+    var enclosingCollectionViewCell: UICollectionViewCell? {
+        var view: UIView? = self
+        while let current = view {
+            if let cell = current as? UICollectionViewCell {
+                return cell
+            }
+            view = current.superview
+        }
+        return nil
     }
 }
 

@@ -19,6 +19,7 @@ enum PrimaryActionButtonMetrics {
 
 struct PrimaryActionButton: View {
     let title: String
+    var systemImage: String? = nil
     var isEnabled: Bool = true
     var isLoading: Bool = false
     var expandsHorizontally: Bool = true
@@ -46,6 +47,12 @@ struct PrimaryActionButton: View {
             if isLoading {
                 ProgressView()
                     .tint(Color.black)
+            } else if let systemImage {
+                HStack(spacing: 8) {
+                    Image(systemName: systemImage)
+                    Text(title)
+                }
+                .font(AppFont.font(size: 16, weight: .semibold))
             } else {
                 Text(title)
                     .font(AppFont.font(size: 16, weight: .semibold))
@@ -88,8 +95,8 @@ private struct PrimaryActionButtonStyle: ButtonStyle {
                     }
                 }
             }
-            .scaleEffect(configuration.isPressed && isInteractive ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && isInteractive ? 0.96 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

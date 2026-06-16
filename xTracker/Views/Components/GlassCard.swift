@@ -71,6 +71,14 @@ extension View {
             .clipShape(GlassCardMetrics.eventCardShape)
     }
 
+    func eventCardChrome(isVisible: Bool) -> some View {
+        background {
+            AppTheme.subtleSurfaceBackground
+                .clipShape(GlassCardMetrics.eventCardShape)
+                .opacity(isVisible ? 1 : 0)
+        }
+    }
+
     func glassSelectableSurface(isSelected: Bool, selectedColor: Color = AppTheme.accent) -> some View {
         background(GlassCardMetrics.shape.fill(isSelected ? selectedColor : Color.white.opacity(0.07)))
             .overlay(

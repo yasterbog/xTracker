@@ -77,13 +77,13 @@ struct FilterChip<Label: View>: View {
 }
 
 struct ScalePressButtonStyle: ButtonStyle {
-    var scale: CGFloat = 0.96
+    var scale: CGFloat = 0.92
     var isEnabled: Bool = true
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && isEnabled ? scale : 1)
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(PressFeedback.animation(isPressed: configuration.isPressed), value: configuration.isPressed)
     }
 }
 
@@ -93,14 +93,23 @@ private struct FilterChipButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(pressedScale(for: configuration))
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isSelected)
+            .compositingGroup()
+            .animation(PressFeedback.animation(isPressed: configuration.isPressed), value: configuration.isPressed)
+            .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isSelected)
     }
 
     private func pressedScale(for configuration: Configuration) -> CGFloat {
-        if configuration.isPressed { return 0.95 }
+        if configuration.isPressed { return 0.92 }
         if isSelected { return 1.05 }
         return 1
+    }
+}
+
+private enum PressFeedback {
+    static func animation(isPressed: Bool) -> Animation {
+        isPressed
+            ? .easeOut(duration: 0.08)
+            : .spring(response: 0.42, dampingFraction: 0.62)
     }
 }
 
@@ -253,11 +262,36 @@ struct ChipButton: View {
     }
 }
 
-private struct ChipButtonStyle: ButtonStyle {
+private struct ChipButtonStyle: PrimitiveButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
+        ChipButtonStyleBody(configuration: configuration)
+    }
+}
+
+private struct ChipButtonStyleBody: View {
+    let configuration: ChipButtonStyle.Configuration
+    @GestureState private var isPressed = false
+    @State private var didTriggerHaptic = false
+
+    var body: some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1)
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(isPressed ? 0.93 : 1)
+            .animation(.easeOut(duration: 0.08), value: isPressed)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($isPressed) { _, state, _ in
+                        state = true
+                    }
+                    .onChanged { _ in
+                        guard !didTriggerHaptic else { return }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        didTriggerHaptic = true
+                    }
+                    .onEnded { _ in
+                        didTriggerHaptic = false
+                        configuration.trigger()
+                    }
+            )
     }
 }
 

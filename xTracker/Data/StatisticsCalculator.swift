@@ -93,7 +93,7 @@ enum TimeOfDayPeriod: String, CaseIterable, Identifiable {
 struct StatisticsCalculator {
     let events: [Event]
     let period: StatisticsPeriod
-    let activityFilter: ActivityType?
+    let femaleOrgasmActivityFilter: Set<String>
     let customStartDate: Date?
     let customEndDate: Date?
     let referenceDate: Date
@@ -102,7 +102,7 @@ struct StatisticsCalculator {
     init(
         events: [Event],
         period: StatisticsPeriod,
-        activityFilter: ActivityType? = nil,
+        femaleOrgasmActivityFilter: Set<String> = [],
         customStartDate: Date? = nil,
         customEndDate: Date? = nil,
         referenceDate: Date = Date(),
@@ -110,7 +110,7 @@ struct StatisticsCalculator {
     ) {
         self.events = events.filter { $0.status == .completed }
         self.period = period
-        self.activityFilter = activityFilter
+        self.femaleOrgasmActivityFilter = femaleOrgasmActivityFilter
         self.customStartDate = customStartDate
         self.customEndDate = customEndDate
         self.referenceDate = referenceDate
@@ -146,8 +146,7 @@ struct StatisticsCalculator {
     }
 
     var displayEvents: [Event] {
-        guard let activityFilter else { return periodEvents }
-        return periodEvents.filter { $0.activities.contains(activityFilter) }
+        periodEvents
     }
 
     var totalEvents: Int { periodEvents.count }
@@ -191,19 +190,41 @@ struct StatisticsCalculator {
         periodEvents.filter(\.femaleOrgasm).count
     }
 
-    var femaleOrgasmPercentage: Int {
-        guard !periodEvents.isEmpty else { return 0 }
-        return Int((Double(femaleOrgasmCount) / Double(periodEvents.count) * 100).rounded())
+    var femaleOrgasmActivityFilteredEvents: [Event] {
+        guard !femaleOrgasmActivityFilter.isEmpty else { return periodEvents }
+        return periodEvents.filter { event in
+            event.activities.contains { femaleOrgasmActivityFilter.contains($0) }
+        }
     }
 
-    func activityCounts() -> [(activity: ActivityType, count: Int)] {
-        ActivityType.allCases
-            .map { activity in
-                let count = periodEvents.filter { $0.activities.contains(activity) }.count
-                return (activity, count)
+    var femaleOrgasmFilteredOrgasmCount: Int {
+        femaleOrgasmActivityFilteredEvents.filter(\.femaleOrgasm).count
+    }
+
+    var femaleOrgasmFilteredTotalEvents: Int {
+        femaleOrgasmActivityFilteredEvents.count
+    }
+
+    var femaleOrgasmPercentage: Int {
+        let filtered = femaleOrgasmActivityFilteredEvents
+        guard !filtered.isEmpty else { return 0 }
+        return Int(
+            (Double(femaleOrgasmFilteredOrgasmCount) / Double(filtered.count) * 100).rounded()
+        )
+    }
+
+    func activityCounts(lookup: (String) -> UserActivity) -> [(activity: UserActivity, count: Int)] {
+        var counts: [String: Int] = [:]
+        for event in periodEvents {
+            for activityID in event.activities {
+                counts[activityID, default: 0] += 1
             }
-            .filter { $0.count > 0 }
-            .sorted { $0.count > $1.count }
+        }
+
+        return counts.compactMap { activityID, count -> (UserActivity, Int)? in
+            count > 0 ? (lookup(activityID), count) : nil
+        }
+        .sorted { $0.count > $1.count }
     }
 
     func finishSlices() -> [(finish: FinishType, count: Int, fraction: Double)] {

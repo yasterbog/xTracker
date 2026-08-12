@@ -11,6 +11,7 @@ struct EventDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: EventStore
+    @EnvironmentObject private var activityCatalog: ActivityCatalogStore
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var userService: UserService
 
@@ -110,25 +111,17 @@ struct EventDetailView: View {
     }
 
     private func creatorProfile(for event: Event) -> UserAvatarProfile {
-        if event.createdBy == authService.userID || authService.userID.isEmpty {
-            return UserAvatarProfile(
-                userID: authService.userID,
-                name: userService.ownName.isEmpty ? SettingsStore.defaultUserName : userService.ownName,
-                avatarBase64: userService.ownAvatarBase64,
-                avatarURL: userService.ownAvatarURL
-            )
-        }
-
-        if event.createdBy == authService.partnerID {
-            return UserAvatarProfile(
-                userID: authService.partnerID,
-                name: userService.partnerName.isEmpty ? "Партнёр" : userService.partnerName,
-                avatarBase64: userService.partnerAvatarBase64,
-                avatarURL: userService.partnerAvatarURL
-            )
-        }
-
-        return UserAvatarProfile(userID: event.createdBy, name: "Участник", avatarBase64: nil, avatarURL: nil)
+        EventProfileResolver.creatorProfile(
+            for: event,
+            currentUserID: authService.userID,
+            currentPartnerID: authService.partnerID,
+            ownName: userService.ownName,
+            ownAvatarBase64: userService.ownAvatarBase64,
+            ownAvatarURL: userService.ownAvatarURL,
+            partnerName: userService.partnerName,
+            partnerAvatarBase64: userService.partnerAvatarBase64,
+            partnerAvatarURL: userService.partnerAvatarURL
+        )
     }
 }
 
@@ -140,6 +133,7 @@ private struct EventDetailScrollContent: View {
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: EventStore
+    @EnvironmentObject private var activityCatalog: ActivityCatalogStore
 
     @State private var isMarkingCompleted = false
 
@@ -267,11 +261,15 @@ private struct EventDetailScrollContent: View {
                     .foregroundStyle(EventFormStyle.unselectedLabel)
             } else {
                 LazyVGrid(columns: EventDetailFormatters.twoColumns, spacing: 12) {
-                    ForEach(event.activities) { activity in
+                    ForEach(event.activities, id: \.self) { activityID in
+                        let activity = activityCatalog.displayActivity(for: activityID)
                         EventDetailDisplayCard(
                             emoji: activity.emoji,
                             title: activity.title,
-                            accentColor: FormSelectionPalette.color(for: activity)
+                            accentColor: FormSelectionPalette.color(
+                                forActivityID: activityID,
+                                catalog: activityCatalog
+                            )
                         )
                     }
                 }
@@ -283,7 +281,7 @@ private struct EventDetailScrollContent: View {
         EventFormSection(title: "Использовалась защита") {
             Text(event.protection ? "Да" : "Нет")
                 .font(AppTheme.bodyFont)
-                .foregroundStyle(event.protection ? AppTheme.primaryText : EventFormStyle.unselectedLabel)
+                .foregroundStyle(AppTheme.primaryText)
         }
     }
 
@@ -291,7 +289,7 @@ private struct EventDetailScrollContent: View {
         EventFormSection(title: "Она кончила 💫") {
             Text(event.femaleOrgasm ? "Да" : "Нет")
                 .font(AppTheme.bodyFont)
-                .foregroundStyle(event.femaleOrgasm ? AppTheme.primaryText : EventFormStyle.unselectedLabel)
+                .foregroundStyle(AppTheme.primaryText)
         }
     }
 
@@ -391,4 +389,5 @@ private enum EventDetailFormatters {
         .environmentObject(EventStore())
         .environmentObject(AuthService())
         .environmentObject(UserService())
+        .environmentObject(ActivityCatalogStore())
 }

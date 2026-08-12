@@ -66,6 +66,18 @@ extension View {
             )
     }
 
+    func glassChipChrome() -> some View {
+        background {
+            GeometryReader { geo in
+                GlassBlurBackground(cornerRadius: geo.size.height / 2)
+            }
+        }
+        .clipShape(Capsule())
+        .overlay(
+            Capsule().stroke(GlassCardMetrics.borderGradient, lineWidth: 1)
+        )
+    }
+
     func eventCardChrome() -> some View {
         background(AppTheme.subtleSurfaceBackground)
             .clipShape(GlassCardMetrics.eventCardShape)

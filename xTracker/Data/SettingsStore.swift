@@ -12,6 +12,7 @@ enum SettingsStore {
         static let myPartnerCode = "settings.myPartnerCode"
         static let partnerConnected = "settings.partnerConnected"
         static let avatarImageData = "settings.avatarImageData"
+        static let femaleOrgasmActivityFilter = "settings.femaleOrgasmActivityFilter"
     }
 
     static let defaultUserName = "Моё имя"
@@ -30,11 +31,6 @@ enum SettingsStore {
         return code
     }
 
-    static var isPartnerConnected: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.partnerConnected) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.partnerConnected) }
-    }
-
     static var avatarImage: UIImage? {
         get {
             guard let data = UserDefaults.standard.data(forKey: Keys.avatarImageData) else { return nil }
@@ -46,6 +42,18 @@ enum SettingsStore {
             } else {
                 UserDefaults.standard.removeObject(forKey: Keys.avatarImageData)
             }
+        }
+    }
+
+    static var femaleOrgasmActivityFilter: Set<String> {
+        get {
+            guard let rawValues = UserDefaults.standard.array(forKey: Keys.femaleOrgasmActivityFilter) as? [String] else {
+                return []
+            }
+            return Set(rawValues)
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue), forKey: Keys.femaleOrgasmActivityFilter)
         }
     }
 
@@ -68,6 +76,7 @@ enum SettingsStore {
         defaults.removeObject(forKey: Keys.myPartnerCode)
         defaults.removeObject(forKey: Keys.partnerConnected)
         defaults.removeObject(forKey: Keys.avatarImageData)
+        defaults.removeObject(forKey: Keys.femaleOrgasmActivityFilter)
     }
 
     private static func generatePartnerCode() -> String {

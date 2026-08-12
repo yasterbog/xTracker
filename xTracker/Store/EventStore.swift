@@ -29,7 +29,7 @@ final class EventStore: ObservableObject {
             ?? ""
 
         if pairID.isEmpty {
-            events = MockEventData.allEvents
+            events = []
         } else {
             startListening()
         }
@@ -39,15 +39,15 @@ final class EventStore: ObservableObject {
         self.init(firestoreService: FirestoreService())
     }
 
-    func setPairID(_ newPairID: String) {
-        guard pairID != newPairID else { return }
+    func setPairID(_ newPairID: String, force: Bool = false) {
+        guard force || pairID != newPairID else { return }
         pairID = newPairID
         UserDefaults.standard.set(newPairID, forKey: Keys.savedPairID)
         UserDefaults.standard.set(newPairID, forKey: Keys.legacyPairID)
 
         if newPairID.isEmpty {
             stopListening()
-            events = MockEventData.allEvents
+            events = []
         } else {
             startListening()
         }
@@ -170,12 +170,17 @@ final class EventStore: ObservableObject {
         !partnerPlannedEvents(currentUserID: currentUserID, partnerID: partnerID).isEmpty
     }
 
-    func resetToLocalMockData() {
+    func resetAfterDataDeletion() {
         stopListening()
         pairID = ""
         UserDefaults.standard.removeObject(forKey: Keys.savedPairID)
         UserDefaults.standard.removeObject(forKey: Keys.legacyPairID)
-        events = MockEventData.allEvents
+        events = []
+    }
+
+    func stopListeningForDeletion() {
+        stopListening()
+        events = []
     }
 
     private func startListening() {

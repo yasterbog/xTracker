@@ -10,13 +10,15 @@ struct AddEventView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var userService: UserService
+    @EnvironmentObject private var activityCatalog: ActivityCatalogStore
 
     private let eventToEdit: Event?
     private let notesLimit = 500
     private let sectionSpacing: CGFloat = 40
 
     @State private var date: Date
-    @State private var selectedActivities: Set<ActivityType>
+    @State private var selectedActivities: Set<String>
     @State private var protection: Bool
     @State private var femaleOrgasm: Bool
     @State private var selectedToys: Set<ToyType>
@@ -52,7 +54,7 @@ struct AddEventView: View {
         }
 
         _date = State(initialValue: initialDate)
-        _selectedActivities = State(initialValue: Set(eventToEdit?.activities ?? [.sex]))
+        _selectedActivities = State(initialValue: Set(eventToEdit?.activities ?? ["sex"]))
         _protection = State(initialValue: eventToEdit?.protection ?? false)
         _femaleOrgasm = State(initialValue: eventToEdit?.femaleOrgasm ?? false)
         _selectedToys = State(initialValue: Set(eventToEdit?.toys ?? []))
@@ -134,14 +136,14 @@ struct AddEventView: View {
             AppTheme.sectionTitle("Активности")
 
             LazyVGrid(columns: Self.twoColumns, spacing: 12) {
-                ForEach(ActivityType.allCases) { activity in
+                ForEach(activityCatalog.selectableActivities) { activity in
                     SelectableCard(
                         emoji: activity.emoji,
                         title: activity.title,
-                        accentColor: FormSelectionPalette.color(for: activity),
-                        isSelected: selectedActivities.contains(activity)
+                        accentColor: FormSelectionPalette.color(forActivityID: activity.id, catalog: activityCatalog),
+                        isSelected: selectedActivities.contains(activity.id)
                     ) {
-                        toggle(activity, in: &selectedActivities)
+                        toggle(activity.id, in: &selectedActivities)
                     }
                 }
             }
@@ -309,6 +311,7 @@ struct AddEventView: View {
                 toys: toys,
                 notes: trimmedNotes,
                 createdBy: eventToEdit.createdBy,
+                createdAt: eventToEdit.createdAt,
                 status: eventToEdit.status
             )
             Task {
@@ -330,6 +333,7 @@ struct AddEventView: View {
                 toys: toys,
                 notes: trimmedNotes,
                 createdBy: authService.userID.isEmpty ? "local-user" : authService.userID,
+                createdAt: Date(),
                 status: defaultStatus(for: date)
             )
             Task {
@@ -370,7 +374,7 @@ private struct AddEventDetailCheckboxRow: View {
             HStack(spacing: 12) {
                 Text(title)
                     .font(AppTheme.bodyFont)
-                    .foregroundStyle(isOn ? EventFormStyle.selectedLabel : EventFormStyle.unselectedLabel)
+                    .foregroundStyle(AppTheme.primaryText)
                     .multilineTextAlignment(.leading)
 
                 Spacer(minLength: 8)
@@ -514,4 +518,6 @@ private struct FlowLayout: Layout {
     AddEventView()
         .environmentObject(EventStore())
         .environmentObject(AuthService())
+        .environmentObject(UserService())
+        .environmentObject(ActivityCatalogStore())
 }

@@ -9,55 +9,52 @@ import UIKit
 
 struct SettingsView: View {
     static let profileAvatarSize: CGFloat = 96
+    static let profileHeaderAvatarSize: CGFloat = 64
 
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var userService: UserService
+    @EnvironmentObject private var activityCatalog: ActivityCatalogStore
+
     @State private var nameDraft: String = SettingsStore.userName
     @State private var isEditingName = false
     @State private var showProfileEditor = false
-
-    @State private var showPartnerSheet = false
-    @State private var partnerCodeInput = ""
-    @State private var showPartnerSuccessAlert = false
+    @State private var settingsPath = NavigationPath()
 
     @State private var avatarImage: UIImage? = SettingsStore.avatarImage
     @State private var selectedPhotoItem: PhotosPickerItem?
 
     @State private var showDeleteConfirmation = false
-    @State private var didCopyCode = false
-
-    private var hasUnsavedNameChanges: Bool {
-        trimmed(nameDraft) != trimmed(userService.ownName) && !trimmed(nameDraft).isEmpty
-    }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                profileHeader
-                    .padding(.top, 16)
-                partnerCard
+        NavigationStack(path: $settingsPath) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 32) {
+                    profileHeader
+                        .padding(.top, 16)
 
-                deleteAllDataButton
-                    .padding(.top, 24)
+                    settingsMenu
 
-                Spacer(minLength: 0)
+                    deleteAllDataButton
+                        .padding(.top, 8)
+                }
+                .padding(.horizontal, AppTheme.screenHorizontalPadding)
+                .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
             }
-            .padding(.horizontal, AppTheme.screenHorizontalPadding)
-            .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
+            .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .appScreenBackground()
             .navigationTitle("Настройки")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
-        }
-        .sheet(isPresented: $showPartnerSheet) {
-            PartnerConnectSheet(partnerCodeInput: $partnerCodeInput) {
-                await connectPartner()
+            .navigationDestination(for: SettingsDestination.self) { destination in
+                switch destination {
+                case .pair:
+                    PairSettingsView()
+                case .activities:
+                    MyActivitiesView()
+                }
             }
-            .environmentObject(authService)
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showProfileEditor) {
             ProfileEditSheet(
@@ -82,28 +79,19 @@ struct SettingsView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .alert("Готово", isPresented: $showPartnerSuccessAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(authService.connectionSuccessMessage ?? "Партнёр успешно подключён!")
-        }
         .task {
             await refreshPairCodeIfNeeded()
             await authService.refreshPairStatus()
+            await ensureOwnProfileOnSyncPairIfNeeded()
             if !authService.pairID.isEmpty {
                 store.setPairID(authService.pairID)
             }
             startProfileListeners()
         }
-        .onChange(of: authService.pairCode) { newCode in
-            if !newCode.isEmpty {
-                didCopyCode = false
-            }
-        }
-        .onChange(of: authService.partnerID) { _ in
+        .onChange(of: authService.pairID) { _ in
             startProfileListeners()
         }
-        .onChange(of: authService.pairID) { _ in
+        .onChange(of: authService.partnerID) { _ in
             startProfileListeners()
         }
         .onChange(of: userService.ownName) { newName in
@@ -124,7 +112,7 @@ struct SettingsView: View {
             }
             Button("Отмена", role: .cancel) {}
         } message: {
-            Text("Все локальные настройки и данные будут сброшены. Это действие нельзя отменить.")
+            Text("Будут удалены только ваши события, имя и аватарка. События партнёра сохранятся. Личный код будет создан заново.")
         }
         .preferredColorScheme(.dark)
         .onChange(of: selectedPhotoItem) { newItem in
@@ -140,16 +128,17 @@ struct SettingsView: View {
         let name = userService.ownName
         let uploading = userService.uploadingAvatar
         let displayName = name.isEmpty ? SettingsStore.defaultUserName : name
+        let partnerDisplayName = userService.partnerName.isEmpty ? "Партнёр" : userService.partnerName
 
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
+            HStack(alignment: .center, spacing: 14) {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     EditableAvatarView(
                         image: avatarImage,
                         avatarBase64: avatarBase64,
                         avatarURL: avatarURL,
                         name: displayName,
-                        size: Self.profileAvatarSize,
+                        size: Self.profileHeaderAvatarSize,
                         isLoading: uploading,
                         showsCameraOverlay: false
                     )
@@ -157,88 +146,50 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .disabled(uploading)
 
-                Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(displayName)
+                        .font(AppFont.font(size: 22, weight: .bold))
+                        .foregroundStyle(AppTheme.primaryText)
+                        .lineLimit(2)
+
+                    if authService.isPartnerConnected {
+                        Text("В паре с \(partnerDisplayName)")
+                            .font(AppFont.font(size: 15, weight: .medium))
+                            .foregroundStyle(AppTheme.accent)
+                    } else {
+                        Text("Соло • Без пары")
+                            .font(AppFont.font(size: 15, weight: .medium))
+                            .foregroundStyle(AppTheme.secondaryText)
+                    }
+                }
+
+                Spacer(minLength: 8)
 
                 ChipButton(title: "Изменить") {
                     showProfileEditor = true
                 }
             }
-
-            Text(displayName)
-                .font(AppFont.font(size: 28, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 12)
-
-            Divider()
-                .overlay(AppTheme.separator)
-                .padding(.top, 24)
-                .padding(.bottom, 24)
         }
     }
 
-    private var partnerCard: some View {
-        SettingsGroup {
-            VStack(spacing: 0) {
-                HStack {
-                    Text("Мой код")
-                        .font(AppTheme.bodyFont)
-                        .foregroundStyle(AppTheme.primaryText)
-
-                    Spacer()
-
-                    Text(authService.pairCode.isEmpty ? "…" : authService.pairCode)
-                        .font(AppFont.font(size: 16, weight: .semibold))
-                        .foregroundStyle(AppTheme.primaryText)
-                        .monospaced()
-
-                    Button {
-                        UIPasteboard.general.string = authService.pairCode
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            didCopyCode = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation { didCopyCode = false }
-                        }
-                    } label: {
-                        Image(systemName: didCopyCode ? "checkmark" : "doc.on.doc")
-                            .font(AppFont.font(size: 16, weight: .semibold))
-                            .foregroundStyle(didCopyCode ? .green : AppTheme.accent)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                SettingsCardDivider()
-
-                if authService.isPartnerConnected {
-                    PartnerProfileRow(
-                        name: userService.partnerName.isEmpty ? "Партнёр" : userService.partnerName,
-                        avatarBase64: userService.partnerAvatarBase64,
-                        avatarURL: userService.partnerAvatarURL
-                    )
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                } else {
-                    Button {
-                        partnerCodeInput = ""
-                        showPartnerSheet = true
-                    } label: {
-                        HStack {
-                            Text("Подключить партнёра")
-                                .font(AppTheme.bodyFont)
-                                .foregroundStyle(AppTheme.primaryText)
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(AppFont.font(size: 12, weight: .semibold))
-                                .foregroundStyle(AppTheme.secondaryText)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
+    private var settingsMenu: some View {
+        SettingsMenuGroup {
+            Button {
+                settingsPath.append(SettingsDestination.pair)
+            } label: {
+                SettingsMenuRow(iconAsset: "lovely", title: "Пара")
             }
+            .buttonStyle(.plain)
+
+            SettingsMenuDivider()
+
+            Button {
+                settingsPath.append(SettingsDestination.activities)
+            } label: {
+                SettingsMenuRow(iconAsset: "folder-favorite", title: "Мои активности")
+            }
+            .buttonStyle(.plain)
         }
-        .animation(.easeInOut(duration: 0.25), value: authService.isPartnerConnected)
     }
 
     private var deleteAllDataButton: some View {
@@ -248,20 +199,6 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
-
-    private func commitNameIfNeeded() {
-        let trimmedName = trimmed(nameDraft)
-        guard !trimmedName.isEmpty else { return }
-
-        withAnimation(.easeInOut(duration: 0.2)) {
-            nameDraft = trimmedName
-            SettingsStore.userName = trimmedName
-            isEditingName = false
-        }
-
-        userService.ownName = trimmedName
-        saveProfile(name: trimmedName, avatarData: nil)
-    }
 
     private func loadPhoto(from item: PhotosPickerItem?) {
         guard let item else { return }
@@ -280,43 +217,56 @@ struct SettingsView: View {
     }
 
     private func refreshPairCodeIfNeeded() async {
-        if authService.pairCode.isEmpty {
+        if authService.resolvedPairCode.isEmpty {
             _ = try? await authService.generatePairCode()
-        }
-    }
-
-    private func connectPartner() async {
-        authService.connectionError = nil
-        authService.connectionSuccessMessage = nil
-
-        do {
-            try await authService.joinPair(code: partnerCodeInput)
-            store.setPairID(authService.pairID)
-            saveProfile(name: userService.ownName, avatarData: avatarImage?.jpegData(compressionQuality: 0.85))
-            startProfileListeners()
-            showPartnerSuccessAlert = true
-        } catch {
-            authService.connectionError = error.localizedDescription
         }
     }
 
     private func deleteAllData() {
-        SettingsStore.deleteAllData()
-        userService.stopListening()
-        authService.clearConnectionState()
-        store.resetToLocalMockData()
-
-        withAnimation(.easeInOut(duration: 0.25)) {
-            userService.ownName = SettingsStore.defaultUserName
-            nameDraft = SettingsStore.defaultUserName
-            avatarImage = nil
-            isEditingName = false
-            partnerCodeInput = ""
-        }
-
         Task {
-            _ = try? await authService.generatePairCode()
+            SettingsStore.deleteAllData()
+            activityCatalog.resetToDefaults()
+            userService.stopListening()
+            userService.resetOwnProfileLocally()
+            store.stopListeningForDeletion()
+
+            withAnimation(.easeInOut(duration: 0.25)) {
+                nameDraft = SettingsStore.defaultUserName
+                avatarImage = nil
+                isEditingName = false
+            }
+
+            do {
+                try await authService.deleteAllData()
+            } catch {
+                authService.connectionError = authService.formatConnectionError(error)
+                if authService.resolvedPairCode.isEmpty {
+                    _ = try? await authService.generatePairCode()
+                }
+            }
+
+            store.resetAfterDataDeletion()
+            store.setPairID(authService.pairID, force: true)
+
+            userService.startListeners(
+                pairID: authService.pairID,
+                userID: authService.userID,
+                partnerID: authService.partnerID
+            )
         }
+    }
+
+    private func ensureOwnProfileOnSyncPairIfNeeded() async {
+        guard authService.isPartnerConnected else { return }
+        guard authService.pairID != authService.pairCode else { return }
+
+        try? await userService.ensureProfileOnSyncPair(
+            from: authService.pairCode,
+            to: authService.pairID,
+            userID: authService.userID,
+            fallbackName: SettingsStore.userName,
+            avatarData: SettingsStore.avatarImage?.jpegData(compressionQuality: 0.85)
+        )
     }
 
     private func saveProfile(name: String, avatarData: Data?) {
@@ -342,7 +292,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Components
+// MARK: - Profile Edit Sheet
 
 private struct ProfileEditSheet: View {
     let avatarBase64: String?
@@ -351,7 +301,6 @@ private struct ProfileEditSheet: View {
     let onSave: (String, Data?, UIImage?) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isNameFocused: Bool
     @State private var nameDraft: String
     @State private var selectedImage: UIImage?
     @State private var selectedAvatarData: Data?
@@ -395,10 +344,9 @@ private struct ProfileEditSheet: View {
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity)
 
-                    ClearableTextField(
-                        placeholder: "Имя",
-                        text: $nameDraft,
-                        isFocused: $isNameFocused
+                    FloatingLabelTextField(
+                        label: "Имя",
+                        text: $nameDraft
                     )
 
                     PrimaryActionButton(title: "Сохранить", isEnabled: canSave) {
@@ -440,207 +388,10 @@ private struct ProfileEditSheet: View {
     }
 }
 
-private struct ClearableTextField: View {
-    let placeholder: String
-    @Binding var text: String
-    var isFocused: FocusState<Bool>.Binding
-
-    var body: some View {
-        HStack(spacing: 10) {
-            TextField(placeholder, text: $text)
-                .font(AppTheme.bodyFont)
-                .foregroundStyle(AppTheme.primaryText)
-                .textInputAutocapitalization(.words)
-                .focused(isFocused)
-
-            if !text.isEmpty {
-                Button {
-                    text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(AppFont.font(size: 18, weight: .semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 13)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(AppTheme.subtleSurfaceBackground)
-        )
-    }
-}
-
-private struct SheetPrimaryButton: View {
-    let title: String
-    let isDisabled: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(AppFont.font(size: 16, weight: .semibold))
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(isDisabled ? Color.gray.opacity(0.35) : AppTheme.accent)
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-    }
-}
-
-private struct EditableAvatarView: View {
-    let image: UIImage?
-    let avatarBase64: String?
-    let avatarURL: String?
-    let name: String
-    let size: CGFloat
-    let isLoading: Bool
-    var showsCameraOverlay = true
-
-    private var cameraBadgeSize: CGFloat { size * 28 / 88 }
-    private var cameraIconSize: CGFloat { size * 13 / 88 }
-    private var cameraOffset: CGFloat { size * 2 / 88 }
-    private var outerPadding: CGFloat { size * 8 / 88 }
-
-    var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            ZStack {
-                if let image {
-                    AvatarView(image: image, initials: SettingsStore.initials(from: name), size: size)
-                } else {
-                    UserAvatarView(
-                        avatarBase64: avatarBase64,
-                        avatarURL: avatarURL,
-                        name: name,
-                        size: size
-                    )
-                }
-
-                if isLoading {
-                    Circle()
-                        .fill(Color.black.opacity(0.45))
-                        .frame(width: size, height: size)
-                    ProgressView()
-                        .tint(AppTheme.primaryText)
-                }
-            }
-
-            if showsCameraOverlay {
-                ZStack {
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: cameraBadgeSize, height: cameraBadgeSize)
-                        .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
-
-                    Image(systemName: "camera.fill")
-                        .font(AppFont.font(size: cameraIconSize, weight: .semibold))
-                        .foregroundStyle(Color.black)
-                }
-                .offset(x: cameraOffset, y: cameraOffset)
-            }
-        }
-        .frame(
-            width: showsCameraOverlay ? size + outerPadding : size,
-            height: showsCameraOverlay ? size + outerPadding : size
-        )
-    }
-}
-
-private struct SettingsGroup<Content: View>: View {
-    let title: String?
-    @ViewBuilder let content: Content
-
-    init(title: String? = nil, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let title {
-                AppTheme.sectionHeader(title)
-            }
-
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .subtleSurfaceCard()
-        }
-    }
-}
-
-private struct SettingsCardDivider: View {
-    var body: some View {
-        Divider()
-            .overlay(AppTheme.separator)
-            .padding(.vertical, 12)
-    }
-}
-
-
-private struct AvatarView: View {
-    let image: UIImage?
-    let initials: String
-    var size: CGFloat = 96
-
-    var body: some View {
-        ZStack {
-            if image == nil {
-                AppTheme.accent
-            }
-
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Text(initials)
-                    .font(AppFont.font(size: size * 0.32, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay(
-            Circle()
-                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-        )
-    }
-}
-
-private struct PartnerProfileRow: View {
-    let name: String
-    let avatarBase64: String?
-    let avatarURL: String?
-
-    var body: some View {
-        HStack(spacing: 12) {
-            UserAvatarView(
-                avatarBase64: avatarBase64,
-                avatarURL: avatarURL,
-                name: name,
-                size: 40
-            )
-
-            Text(name)
-                .font(AppTheme.bodyFont)
-                .foregroundStyle(AppTheme.primaryText)
-
-            Spacer()
-        }
-    }
-}
-
 #Preview {
     SettingsView()
         .environmentObject(AuthService())
         .environmentObject(UserService())
         .environmentObject(EventStore())
+        .environmentObject(ActivityCatalogStore())
 }
-

@@ -8,13 +8,26 @@ import UIKit
 
 struct StatisticsView: View {
     @EnvironmentObject private var store: EventStore
+    @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var userService: UserService
+    @EnvironmentObject private var activityCatalog: ActivityCatalogStore
     @State private var segmentedPeriod: SegmentedStatisticsPeriod = .allTime
     @State private var selectedPeriod: StatisticsPeriod = .allTime
     @State private var customPeriodActive = false
     @State private var customStartDate = Date()
     @State private var customEndDate = Date()
     @State private var showPeriodOptionsSheet = false
+    @State private var showFemaleOrgasmActivitiesSheet = false
+    @State private var femaleOrgasmActivityFilter: Set<String> = SettingsStore.femaleOrgasmActivityFilter
     private static let statsCardsSpacing: CGFloat = StatsLayout.cardsSpacing
+
+    private var resolvedFemaleOrgasmActivityFilter: Set<String> {
+        let stored = femaleOrgasmActivityFilter
+        if stored.isEmpty {
+            return activityCatalog.selectableActivityIDs
+        }
+        return stored
+    }
 
     private var completedEvents: [Event] {
         store.events.filter { $0.status == .completed }
@@ -24,7 +37,7 @@ struct StatisticsView: View {
         StatisticsCalculator(
             events: completedEvents,
             period: customPeriodActive ? .custom : selectedPeriod,
-            activityFilter: nil,
+            femaleOrgasmActivityFilter: resolvedFemaleOrgasmActivityFilter,
             customStartDate: customPeriodActive ? customStartDate : nil,
             customEndDate: customPeriodActive ? customEndDate : nil
         )
@@ -50,8 +63,73 @@ struct StatisticsView: View {
         }
     }
 
+    private var chartPointDates: [Date]? {
+        let calendar = Calendar.current
+        let period = customPeriodActive ? StatisticsPeriod.custom : selectedPeriod
+
+        switch period {
+        case .allTime:
+            return allTimeMonthlyChartDates(calendar: calendar)
+        case .threeMonths, .year:
+            return filteredMonthlyChartDates(calendar: calendar)
+        case .custom:
+            guard let startDay = calculator.periodStartDay,
+                  let endDay = calculator.periodEndDay,
+                  let daySpan = calculator.periodDaySpan,
+                  daySpan > 45 else {
+                return nil
+            }
+            return chartMonthsInRangeDates(from: startDay, through: endDay, calendar: calendar)
+        case .week, .month:
+            return nil
+        }
+    }
+
+    private func allTimeMonthlyChartDates(calendar: Calendar) -> [Date] {
+        let eventsByMonth = Dictionary(grouping: completedEvents) { event in
+            calendar.date(from: calendar.dateComponents([.year, .month], from: event.date))
+                ?? calendar.startOfDay(for: event.date)
+        }
+        return eventsByMonth.keys.sorted()
+    }
+
+    private func filteredMonthlyChartDates(calendar: Calendar) -> [Date] {
+        let filtered = calculator.periodEvents
+        let eventsByMonth = Dictionary(grouping: filtered) { event in
+            calendar.date(from: calendar.dateComponents([.year, .month], from: event.date))
+                ?? calendar.startOfDay(for: event.date)
+        }
+        return eventsByMonth.keys.sorted()
+    }
+
+    private func chartMonthsInRangeDates(
+        from startDay: Date,
+        through endDay: Date,
+        calendar: Calendar
+    ) -> [Date] {
+        guard var monthCursor = calendar.date(from: calendar.dateComponents([.year, .month], from: startDay)) else {
+            return []
+        }
+
+        var dates: [Date] = []
+
+        while monthCursor <= endDay {
+            dates.append(monthCursor)
+            guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthCursor) else { break }
+            monthCursor = nextMonth
+        }
+
+        return dates
+    }
+
+    private var chartDisplayPoints: [ChartDisplayPoint] {
+        chartDataPoints.map { point in
+            ChartDisplayPoint(label: point.label, count: point.count, isPlaceholder: false)
+        }
+    }
+
     private var monthlyChartSection: some View {
-        MonthlyEventsLineChart(dataPoints: chartDataPoints)
+        MonthlyEventsLineChart(dataPoints: chartDisplayPoints)
             .animation(nil, value: chartDataSignature)
             .padding(.horizontal, AppTheme.screenHorizontalPadding)
             .padding(.top, 20)
@@ -274,6 +352,7 @@ struct StatisticsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
+
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .scrollIndicators(.hidden)
@@ -281,7 +360,7 @@ struct StatisticsView: View {
             .appScreenBackground()
             .navigationTitle("Статистика")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.hidden, for: .navigationBar)
+
         }
         .sheet(isPresented: $showPeriodOptionsSheet) {
             CustomPeriodSheet(
@@ -296,6 +375,17 @@ struct StatisticsView: View {
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showFemaleOrgasmActivitiesSheet) {
+            FemaleOrgasmActivitiesFilterSheet(
+                selectedActivities: $femaleOrgasmActivityFilter,
+                allActivities: activityCatalog.selectableActivities
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: femaleOrgasmActivityFilter) { newValue in
+            SettingsStore.femaleOrgasmActivityFilter = newValue
         }
         .preferredColorScheme(.dark)
     }
@@ -342,13 +432,15 @@ struct StatisticsView: View {
     @ViewBuilder
     private var detailSections: some View {
         VStack(alignment: .leading, spacing: Self.statsCardsSpacing) {
-            if !calculator.activityCounts().isEmpty {
+            if !calculator.activityCounts(lookup: activityCatalog.displayActivity(for:)).isEmpty {
                 activitiesSection
             }
 
-            if calculator.femaleOrgasmCount > 0 {
+            if calculator.femaleOrgasmFilteredTotalEvents > 0 {
                 femaleOrgasmSection
             }
+
+            gapStatsSection
 
             if !calculator.finishSlices().isEmpty {
                 finishSection
@@ -434,26 +526,12 @@ struct StatisticsView: View {
             StatCard(
                 title: "Всего событий",
                 value: "\(calculator.totalEvents)",
-                iconName: "heart",
-                accentColor: AppTheme.accent
+                iconName: "heart"
             )
             StatCard(
                 title: "Она кончила",
                 value: "\(calculator.femaleOrgasmCount)",
-                iconName: "medal-star",
-                accentColor: DayHeartColorStore.palette[1]
-            )
-            StatCard(
-                title: "Макс. перерыв",
-                value: "\(calculator.maxGapDays) дн.",
-                iconName: "timer-pause",
-                accentColor: DayHeartColorStore.palette[2]
-            )
-            StatCard(
-                title: "Перерыв",
-                value: calculator.daysSinceLastEvent.map { "\($0) дн." } ?? "—",
-                iconName: "timer",
-                accentColor: DayHeartColorStore.palette[3]
+                iconName: "medal-star"
             )
         }
     }
@@ -494,10 +572,10 @@ struct StatisticsView: View {
 
     private var activitiesSection: some View {
         StatsSectionCard(title: "Активности") {
-            let counts = calculator.activityCounts()
+            let counts = calculator.activityCounts(lookup: activityCatalog.displayActivity(for:))
             let totalUsages = counts.map(\.count).reduce(0, +)
 
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 15) {
                 if totalUsages > 0 {
                     StorageStyleSegmentedBar(
                         segments: counts.enumerated().map { index, item in
@@ -526,13 +604,32 @@ struct StatisticsView: View {
     }
 
     private var femaleOrgasmSection: some View {
-        StatsSectionCard(title: "Она кончила") {
+        StatsSectionCard(
+            title: "Она кончила",
+            trailing: {
+                Button {
+                    showFemaleOrgasmActivitiesSheet = true
+                } label: {
+                    Image("sort")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Учитывать активности")
+            }
+        ) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text("\(calculator.femaleOrgasmPercentage)%")
                     .font(AppFont.font(size: 52, weight: .black))
                     .foregroundStyle(AppTheme.accent)
 
-                Text("в \(calculator.femaleOrgasmCount) из \(calculator.totalEvents) событий")
+                Text(
+                    "в \(calculator.femaleOrgasmFilteredOrgasmCount) из \(calculator.femaleOrgasmFilteredTotalEvents) событий"
+                )
                     .font(AppFont.font(size: 15, weight: .semibold))
                     .foregroundStyle(AppTheme.secondaryText)
             }
@@ -547,7 +644,10 @@ struct StatisticsView: View {
             VStack(spacing: 24) {
                 DonutChartView(
                     segments: slices.enumerated().map { index, slice in
-                        (value: Double(slice.count), color: statsPaletteColor(at: index))
+                        (
+                            value: Double(slice.count),
+                            color: statsPaletteColor(at: index)
+                        )
                     }
                 )
                 .frame(maxWidth: .infinity)
@@ -567,17 +667,31 @@ struct StatisticsView: View {
         }
     }
 
+    private var gapStatsSection: some View {
+        LazyVGrid(columns: Self.twoColumns, spacing: Self.statsCardsSpacing) {
+            GapStatCard(
+                title: "Макс. перерыв",
+                days: calculator.maxGapDays
+            )
+            GapStatCard(
+                title: "Текущий перерыв",
+                days: calculator.daysSinceLastEvent
+            )
+        }
+    }
+
     private var toysSection: some View {
         StatsSectionCard(title: "Игрушки") {
             let counts = calculator.toyCounts()
             let maxCount = max(counts.map(\.count).max() ?? 1, 1)
 
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(counts, id: \.toy.id) { item in
+            VStack(alignment: .leading, spacing: 15) {
+                ForEach(Array(counts.enumerated()), id: \.element.toy.id) { index, item in
                     HorizontalBarRow(
-                        leading: "\(item.toy.emoji) \(item.toy.title)",
+                        leading: item.toy.title,
                         count: item.count,
-                        maxCount: maxCount
+                        maxCount: maxCount,
+                        barColor: index == 0 ? AppTheme.accent : AppTheme.appWhite
                     )
                 }
             }
@@ -615,9 +729,7 @@ struct StatisticsView: View {
     }
 
     private func statsPaletteColor(at index: Int) -> Color {
-        let palette = DayHeartColorStore.palette
-        guard !palette.isEmpty else { return AppTheme.accent }
-        return palette[index % palette.count]
+        DayHeartColorStore.color(at: index)
     }
 
     private static let twoColumns = [
@@ -679,6 +791,129 @@ private struct PeriodOptionsSheet: View {
             .sheetInlineHeader("Свой период")
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Female Orgasm Activities Filter Sheet
+
+private struct FemaleOrgasmActivitiesFilterSheet: View {
+    @Binding var selectedActivities: Set<String>
+    let allActivities: [UserActivity]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var draftSelection: Set<String> = []
+
+    private var canApply: Bool {
+        !draftSelection.isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(allActivities) { activity in
+                            ActivityFilterCheckboxRow(
+                                activity: activity,
+                                isSelected: draftSelection.contains(activity.id)
+                            ) {
+                                UXFeedback.lightImpact()
+                                if draftSelection.contains(activity.id) {
+                                    draftSelection.remove(activity.id)
+                                } else {
+                                    draftSelection.insert(activity.id)
+                                }
+                            }
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+
+                PrimaryActionButton(
+                    title: "Применить",
+                    isEnabled: canApply,
+                    animatesEnabledState: false
+                ) {
+                    selectedActivities = draftSelection
+                    SettingsStore.femaleOrgasmActivityFilter = draftSelection
+                    dismiss()
+                }
+                .padding(.top, 20)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(AppTheme.background)
+            .sheetInlineHeader("Учитывать активности")
+            .animation(nil, value: draftSelection)
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            draftSelection = selectedActivities.isEmpty
+                ? Set(allActivities.map(\.id))
+                : selectedActivities
+        }
+    }
+}
+
+private struct ActivityFilterCheckboxRow: View {
+    let activity: UserActivity
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text("\(activity.emoji) \(activity.title)")
+                    .font(AppTheme.bodyFont)
+                    .foregroundStyle(AppTheme.primaryText)
+                    .multilineTextAlignment(.leading)
+
+                Spacer(minLength: 8)
+
+                StatsActivityCheckbox(isOn: isSelected)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                    .fill(isSelected ? EventFormStyle.selectedTintBackground : EventFormStyle.surfaceBackground)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: AppTheme.compactCardCornerRadius, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? EventFormStyle.selectedBorderColor : Color.clear,
+                        lineWidth: 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct StatsActivityCheckbox: View {
+    let isOn: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(EventFormStyle.uncheckedCheckboxBorder, lineWidth: 1.5)
+                .opacity(isOn ? 0 : 1)
+
+            Circle()
+                .fill(EventFormStyle.selectedCheckboxFill)
+                .opacity(isOn ? 1 : 0)
+
+            CheckmarkDrawShape()
+                .stroke(
+                    EventFormStyle.selectedCheckboxCheckmark,
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+                )
+                .frame(width: 11, height: 11)
+                .opacity(isOn ? 1 : 0)
+        }
+        .frame(width: 22, height: 22)
+        .animation(nil, value: isOn)
     }
 }
 
@@ -753,8 +988,14 @@ private struct CustomPeriodSheet: View {
 
 // MARK: - Monthly Line Chart
 
+private struct ChartDisplayPoint {
+    let label: String
+    let count: Int
+    let isPlaceholder: Bool
+}
+
 private struct MonthlyEventsLineChart: View {
-    let dataPoints: [(label: String, count: Int)]
+    let dataPoints: [ChartDisplayPoint]
 
     private let lineColor = AppTheme.accent
     private let chartHeight: CGFloat = 160
@@ -767,11 +1008,12 @@ private struct MonthlyEventsLineChart: View {
     private static let lineEdgeOverflow: CGFloat = 48
 
     private var hasData: Bool {
-        dataPoints.contains { $0.count > 0 }
+        dataPoints.contains { !$0.isPlaceholder && $0.count > 0 }
     }
 
     private var maxCount: Int {
-        max(dataPoints.map(\.count).max() ?? 1, 1)
+        let realCounts = dataPoints.filter { !$0.isPlaceholder }.map(\.count)
+        return max(realCounts.max() ?? 1, 1)
     }
 
     var body: some View {
@@ -873,7 +1115,7 @@ private struct MonthlyEventsLineChart: View {
 
         return HStack(alignment: .top, spacing: 0) {
             ForEach(Array(dataPoints.enumerated()), id: \.offset) { index, point in
-                Text(xAxisLabel(for: index, label: point.label))
+                Text(xAxisLabel(for: index, point: point))
                     .font(AppFont.font(size: 10, weight: .semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
@@ -885,11 +1127,14 @@ private struct MonthlyEventsLineChart: View {
         .frame(width: plotWidth)
     }
 
-    private func xAxisLabel(for index: Int, label: String) -> String {
+    private func xAxisLabel(for index: Int, point: ChartDisplayPoint) -> String {
+        if point.isPlaceholder {
+            return ""
+        }
         if dataPoints.count > 8, !index.isMultiple(of: 2) {
             return ""
         }
-        return label
+        return point.label
     }
 
     private var yAxisLegend: some View {
@@ -923,7 +1168,7 @@ private struct MonthlyEventsLineChart: View {
         plotWidth: CGFloat,
         overflow: CGFloat
     ) -> some View {
-        Canvas { context, _ in
+        Canvas { context, size in
             guard !dataPoints.isEmpty else { return }
 
             let points = linePoints(
@@ -1079,21 +1324,24 @@ private struct StatsAccentGlow: View {
     }
 }
 
-private struct StatsSectionCard<Content: View>: View {
+private struct StatsSectionCard<Content: View, Trailing: View>: View {
     let title: String
     var glowColor: Color?
     var glowCorner: StatsGlowCorner = .topLeading
+    @ViewBuilder let trailing: () -> Trailing
     @ViewBuilder let content: Content
 
     init(
         title: String,
         glowColor: Color? = nil,
         glowCorner: StatsGlowCorner = .topLeading,
+        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() },
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.glowColor = glowColor
         self.glowCorner = glowCorner
+        self.trailing = trailing
         self.content = content()
     }
 
@@ -1104,6 +1352,11 @@ private struct StatsSectionCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             AppTheme.sectionTitle(title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .trailing) {
+                    trailing()
+                        .offset(y: -2)
+                }
 
             content
         }
@@ -1126,9 +1379,10 @@ private struct StatCard: View {
     let title: String
     let value: String
     let iconName: String
-    var accentColor: Color = AppTheme.accent
 
-    private static let iconSize: CGFloat = 28
+    private static let iconSize: CGFloat = 22
+    private static let iconBadgePadding: CGFloat = 10
+    private static let iconBadgeCornerRadius: CGFloat = 13
     private static let contentSpacing: CGFloat = 12
     private static let titleValueSpacing: CGFloat = 4
 
@@ -1160,7 +1414,54 @@ private struct StatCard: View {
             .resizable()
             .scaledToFit()
             .frame(width: Self.iconSize, height: Self.iconSize)
-            .foregroundStyle(accentColor)
+            .foregroundStyle(AppTheme.appWhite)
+            .padding(Self.iconBadgePadding)
+            .background(
+                RoundedRectangle(cornerRadius: Self.iconBadgeCornerRadius, style: .continuous)
+                    .fill(AppTheme.appWhite.opacity(0.1))
+            )
+    }
+}
+
+private struct GapStatCard: View {
+    let title: String
+    let days: Int?
+
+    private static let titleValueSpacing: CGFloat = 4
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Self.titleValueSpacing) {
+            daysValue
+
+            Text(title)
+                .font(AppFont.font(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(StatsLayout.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.subtleSurfaceBackground)
+        .clipShape(RoundedRectangle(cornerRadius: StatsCardStyle.cornerRadius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var daysValue: some View {
+        if let days {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(days)")
+                    .font(AppFont.font(size: 28, weight: .black))
+                    .foregroundStyle(AppTheme.primaryText)
+
+                Text("дней")
+                    .font(AppFont.font(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.primaryText)
+            }
+        } else {
+            Text("—")
+                .font(AppFont.font(size: 28, weight: .black))
+                .foregroundStyle(AppTheme.primaryText)
+        }
     }
 }
 
@@ -1223,6 +1524,9 @@ private struct HorizontalBarRow: View {
     let leading: String
     let count: Int
     let maxCount: Int
+    let barColor: Color
+
+    private static let barHeight: CGFloat = 10
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -1239,14 +1543,14 @@ private struct HorizontalBarRow: View {
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.1))
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.7))
+                    Capsule()
+                        .fill(AppTheme.appWhite.opacity(0.04))
+                    Capsule()
+                        .fill(barColor)
                         .frame(width: maxCount > 0 ? geometry.size.width * CGFloat(count) / CGFloat(maxCount) : 0)
                 }
             }
-            .frame(height: 8)
+            .frame(height: Self.barHeight)
         }
     }
 }
@@ -1294,7 +1598,7 @@ private struct DonutChartView: View {
 
     private func buildSegments() -> [ArcSegment] {
         guard total > 0 else { return [] }
-        let gap: CGFloat = 0.044
+        let gap: CGFloat = 0.0444
         let sorted = segments.filter { $0.value > 0 }.sorted { $0.value > $1.value }
         let totalGap = gap * CGFloat(sorted.count)
         let available = 1.0 - totalGap
@@ -1371,4 +1675,7 @@ private struct TimeOfDayBar: View {
 #Preview {
     StatisticsView()
         .environmentObject(EventStore())
+        .environmentObject(AuthService())
+        .environmentObject(UserService())
+        .environmentObject(ActivityCatalogStore())
 }

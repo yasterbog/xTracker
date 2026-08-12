@@ -23,6 +23,7 @@ struct PrimaryActionButton: View {
     var isEnabled: Bool = true
     var isLoading: Bool = false
     var expandsHorizontally: Bool = true
+    var animatesEnabledState: Bool = true
     let action: () -> Void
 
     private var isInteractive: Bool {
@@ -35,7 +36,7 @@ struct PrimaryActionButton: View {
         }
         .buttonStyle(PrimaryActionButtonStyle(isEnabled: isEnabled, isLoading: isLoading))
         .allowsHitTesting(isInteractive)
-        .animation(.easeInOut(duration: 0.2), value: isEnabled)
+        .modifier(PrimaryActionButtonEnabledAnimation(isEnabled: isEnabled, isActive: animatesEnabledState))
     }
 
     private var horizontalPadding: CGFloat {
@@ -53,6 +54,12 @@ struct PrimaryActionButton: View {
                     Text(title)
                 }
                 .font(AppFont.font(size: 16, weight: .semibold))
+            } else if let systemImage {
+                HStack(spacing: 8) {
+                    Image(systemName: systemImage)
+                    Text(title)
+                }
+                .font(AppFont.font(size: 16, weight: .semibold))
             } else {
                 Text(title)
                     .font(AppFont.font(size: 16, weight: .semibold))
@@ -62,6 +69,19 @@ struct PrimaryActionButton: View {
         .padding(.horizontal, horizontalPadding)
         .frame(maxWidth: expandsHorizontally ? .infinity : nil)
         .frame(height: PrimaryActionButtonMetrics.height)
+    }
+}
+
+private struct PrimaryActionButtonEnabledAnimation: ViewModifier {
+    let isEnabled: Bool
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.animation(.easeInOut(duration: 0.2), value: isEnabled)
+        } else {
+            content.animation(nil, value: isEnabled)
+        }
     }
 }
 

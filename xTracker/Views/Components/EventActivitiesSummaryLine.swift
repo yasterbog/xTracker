@@ -21,37 +21,37 @@ enum EventActivitiesSummaryFormatting {
         let remainingCount: Int
     }
 
-    static func layout(for activities: [ActivityType], maxWidth: CGFloat) -> Layout {
-        guard !activities.isEmpty else {
+    static func layout(for emojis: [String], maxWidth: CGFloat) -> Layout {
+        guard !emojis.isEmpty else {
             return Layout(visibleCount: 0, remainingCount: 0)
         }
 
         guard maxWidth > 0 else {
-            return Layout(visibleCount: activities.count, remainingCount: 0)
+            return Layout(visibleCount: emojis.count, remainingCount: 0)
         }
 
-        if rowWidth(activities: activities, visibleCount: activities.count, remainingCount: 0) <= maxWidth {
-            return Layout(visibleCount: activities.count, remainingCount: 0)
+        if rowWidth(emojis: emojis, visibleCount: emojis.count, remainingCount: 0) <= maxWidth {
+            return Layout(visibleCount: emojis.count, remainingCount: 0)
         }
 
-        for visibleCount in stride(from: activities.count - 1, through: 0, by: -1) {
-            let remainingCount = activities.count - visibleCount
-            if rowWidth(activities: activities, visibleCount: visibleCount, remainingCount: remainingCount) <= maxWidth {
+        for visibleCount in stride(from: emojis.count - 1, through: 0, by: -1) {
+            let remainingCount = emojis.count - visibleCount
+            if rowWidth(emojis: emojis, visibleCount: visibleCount, remainingCount: remainingCount) <= maxWidth {
                 return Layout(visibleCount: visibleCount, remainingCount: remainingCount)
             }
         }
 
-        return Layout(visibleCount: 0, remainingCount: activities.count)
+        return Layout(visibleCount: 0, remainingCount: emojis.count)
     }
 
-    private static func rowWidth(activities: [ActivityType], visibleCount: Int, remainingCount: Int) -> CGFloat {
+    private static func rowWidth(emojis: [String], visibleCount: Int, remainingCount: Int) -> CGFloat {
         var width: CGFloat = 0
 
         for index in 0..<visibleCount {
             if index > 0 {
                 width += EventActivitiesSummaryStyle.emojiSpacing
             }
-            width += emojiWidth(activities[index].emoji)
+            width += emojiWidth(emojis[index])
         }
 
         if remainingCount > 0 {
@@ -83,18 +83,23 @@ private struct AvailableWidthPreferenceKey: PreferenceKey {
 }
 
 struct EventActivitiesSummaryLine: View {
-    let activities: [ActivityType]
+    let activityIDs: [String]
 
+    @EnvironmentObject private var activityCatalog: ActivityCatalogStore
     @State private var availableWidth: CGFloat = 0
 
+    private var emojis: [String] {
+        activityIDs.map { activityCatalog.displayEmoji(for: $0) }
+    }
+
     private var layout: EventActivitiesSummaryFormatting.Layout {
-        EventActivitiesSummaryFormatting.layout(for: activities, maxWidth: availableWidth)
+        EventActivitiesSummaryFormatting.layout(for: emojis, maxWidth: availableWidth)
     }
 
     var body: some View {
         HStack(spacing: EventActivitiesSummaryStyle.emojiSpacing) {
-            ForEach(Array(activities.prefix(layout.visibleCount))) { activity in
-                Text(activity.emoji)
+            ForEach(Array(emojis.prefix(layout.visibleCount).enumerated()), id: \.offset) { _, emoji in
+                Text(emoji)
                     .font(EventActivitiesSummaryStyle.emojiFont)
             }
 

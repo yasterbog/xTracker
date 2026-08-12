@@ -17,19 +17,21 @@ struct FirestoreEventRecord: Codable {
     var toys: [String]
     var notes: String
     var createdBy: String
+    var createdAt: Date
     var status: String?
 
     init(from event: Event) {
         id = event.id
         date = event.date
         duration = 0
-        activities = event.activities.map(\.rawValue)
+        activities = event.activities
         protection = event.protection
         femaleOrgasm = event.femaleOrgasm
         finish = event.finish.rawValue
         toys = event.toys.map(\.rawValue)
         notes = event.notes
         createdBy = event.createdBy
+        createdAt = event.createdAt
         status = event.status.rawValue
     }
 
@@ -45,13 +47,13 @@ struct FirestoreEventRecord: Codable {
         toys = try container.decode([String].self, forKey: .toys)
         notes = try container.decode(String.self, forKey: .notes)
         createdBy = try container.decode(String.self, forKey: .createdBy)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? date
         status = try container.decodeIfPresent(String.self, forKey: .status)
     }
 
     func toEvent() -> Event? {
         guard let finishType = FinishType(rawValue: finish) else { return nil }
 
-        let activityTypes = activities.compactMap { ActivityType(rawValue: $0) }
         let toyTypes = toys.compactMap { ToyType(rawValue: $0) }
         let eventStatus = EventStatus(rawValue: status ?? "") ?? .completed
 
@@ -59,13 +61,14 @@ struct FirestoreEventRecord: Codable {
             id: id,
             date: date,
             duration: 0,
-            activities: activityTypes,
+            activities: activities,
             protection: protection,
             femaleOrgasm: femaleOrgasm,
             finish: finishType,
             toys: toyTypes,
             notes: notes,
             createdBy: createdBy,
+            createdAt: createdAt,
             status: eventStatus
         )
     }

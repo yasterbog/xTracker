@@ -92,7 +92,7 @@ private struct EventRowView: View {
                 .foregroundStyle(AppTheme.accent)
                 .frame(width: 52, alignment: .leading)
 
-            EventActivitiesSummaryLine(activities: event.activities)
+            EventActivitiesSummaryLine(activityIDs: event.activities)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if event.hasNotes {
@@ -105,4 +105,5 @@ private struct EventRowView: View {
 
 #Preview {
     DayEventsSheet(date: Date(), events: EventStore().events)
+        .environmentObject(ActivityCatalogStore())
 }

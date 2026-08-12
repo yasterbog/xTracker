@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /pairs/{pairId} {
+      // Authenticated users can read a pair by code (join flow + code uniqueness check).
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.hostUserID == request.auth.uid
+        && request.resource.data.pairID == pairId;
+
+      allow update: if request.auth != null && (
+        resource.data.hostUserID == request.auth.uid
+        || (
+          resource.data.get('guestUserID', null) == null
+          && request.resource.data.guestUserID == request.auth.uid
+          && request.resource.data.hostUserID == resource.data.hostUserID
+        )
+        || (
+          resource.data.get('guestUserID', null) == request.auth.uid
+          && request.resource.data.get('guestUserID', null) == null
+        )
+      );
+
+      allow delete: if request.auth != null
+        && resource.data.hostUserID == request.auth.uid;
+
+      match /events/{eventId} {
+        allow read, write: if isPairMember(pairId);
+      }
+
+      match /users/{userId} {
+        allow read: if isPairMember(pairId) || isPersonalHostProfile(pairId, userId);
+        allow create, update, delete: if request.auth != null
+          && request.auth.uid == userId
+          && isPairMember(pairId);
+      }
+    }
+
+    function isPersonalHostProfile(pairId, userId) {
+      let pair = get(/databases/$(database)/documents/pairs/$(pairId)).data;
+      return request.auth != null
+        && pair.hostUserID == userId
+        && pair.get('guestUserID', null) == null;
+    }
+
+    function isPairMember(pairId) {
+      let pair = get(/databases/$(database)/documents/pairs/$(pairId)).data;
+      return request.auth != null && (
+        pair.hostUserID == request.auth.uid
+        || pair.get('guestUserID', null) == request.auth.uid
+      );
+    }
+  }
+}

@@ -14,22 +14,22 @@ struct PartnerConnectSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
                 Text("Введите код партнёра, чтобы подключить общий календарь.")
                     .font(AppTheme.captionFont)
                     .foregroundStyle(AppTheme.secondaryText)
 
-                TextField("Код партнёра", text: $partnerCodeInput)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .font(AppFont.font(size: 20, weight: .semibold))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(AppTheme.primaryText)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(AppTheme.subtleSurfaceBackground)
-                    )
+                FloatingLabelTextField(
+                    label: "Код партнёра",
+                    text: $partnerCodeInput,
+                    textInputAutocapitalization: .characters
+                )
+                .onChange(of: partnerCodeInput) { newValue in
+                    let uppercased = newValue.uppercased()
+                    if uppercased != newValue {
+                        partnerCodeInput = uppercased
+                    }
+                }
 
                 if let errorMessage = authService.connectionError {
                     Text(errorMessage)
@@ -37,48 +37,21 @@ struct PartnerConnectSheet: View {
                         .foregroundStyle(.red)
                 }
 
-                Button {
+                PrimaryActionButton(
+                    title: "Подключить",
+                    isEnabled: !partnerCodeInput.trimmingCharacters(in: .whitespaces).isEmpty,
+                    isLoading: authService.isConnecting
+                ) {
                     Task { await connect() }
-                } label: {
-                    Group {
-                        if authService.isConnecting {
-                            ProgressView()
-                                .tint(AppTheme.primaryText)
-                        } else {
-                            Text("Подключить")
-                                .font(AppFont.font(size: 16, weight: .semibold))
-                        }
-                    }
-                    .foregroundStyle(AppTheme.primaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(AppTheme.accent)
-                    )
                 }
-                .buttonStyle(.plain)
-                .disabled(authService.isConnecting || partnerCodeInput.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
-            .padding(20)
+            .padding(.horizontal, AppTheme.screenHorizontalPadding)
+            .padding(.vertical, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(AppTheme.background)
-            .navigationTitle("Подключить партнёра")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Отмена") {
-                        dismiss()
-                    }
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .disabled(authService.isConnecting)
-                }
-            }
-            .toolbarBackground(AppTheme.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .sheetInlineHeader("Подключить партнёра")
         }
         .preferredColorScheme(.dark)
     }

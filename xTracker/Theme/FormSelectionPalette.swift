@@ -8,17 +8,18 @@ import SwiftUI
 enum FormSelectionPalette {
     static var colors: [Color] { DayHeartColorStore.palette }
 
-    static let toyColors: [Color] = colors + [
-        Color(hex: "#29F0D0"),
-        Color(hex: "#C85DFF"),
-    ]
+    static let toyColors: [Color] = colors
 
-    static func color(for activity: ActivityType) -> Color {
-        color(in: colors, at: ActivityType.allCases.firstIndex(of: activity) ?? 0)
+    static func color(at index: Int) -> Color {
+        DayHeartColorStore.color(at: index)
+    }
+
+    static func color(forActivityID activityID: String, catalog: ActivityCatalogStore) -> Color {
+        color(at: catalog.colorIndex(for: activityID))
     }
 
     static func color(for toy: ToyType) -> Color {
-        color(in: toyColors, at: ToyType.allCases.firstIndex(of: toy) ?? 0)
+        color(at: ToyType.allCases.firstIndex(of: toy) ?? 0)
     }
 
     static func selectedBackground(_ color: Color) -> Color {
@@ -29,10 +30,5 @@ enum FormSelectionPalette {
 
     static func selectedBorder(_ color: Color) -> Color {
         color.opacity(0.65)
-    }
-
-    private static func color(in palette: [Color], at index: Int) -> Color {
-        guard !palette.isEmpty else { return AppTheme.accent }
-        return palette[index % palette.count]
     }
 }

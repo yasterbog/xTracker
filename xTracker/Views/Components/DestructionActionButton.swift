@@ -8,17 +8,21 @@ import SwiftUI
 struct DestructionActionButton: View {
     let title: String
     var isEnabled: Bool = true
+    var titleColor: Color? = nil
     let action: () -> Void
 
-    private var titleColor: Color {
-        isEnabled ? .red : .red.opacity(0.35)
+    private var resolvedTitleColor: Color {
+        if let titleColor {
+            return isEnabled ? titleColor : titleColor.opacity(0.35)
+        }
+        return isEnabled ? .red : .red.opacity(0.35)
     }
 
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(AppFont.font(size: 16, weight: .semibold))
-                .foregroundStyle(titleColor)
+                .foregroundStyle(resolvedTitleColor)
                 .frame(maxWidth: .infinity)
                 .frame(height: PrimaryActionButtonMetrics.height)
                 .background(

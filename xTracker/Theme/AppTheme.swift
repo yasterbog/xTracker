@@ -11,11 +11,14 @@ enum AppTheme {
     /// Unified surface for cards/chips/controls.
     static let surfaceFill = Color(hex: "#1D1B1B").opacity(0.5)
     static let primaryText = Color.white
+    static let appWhite = Color.white
     static let secondaryText = Color(hex: "#787878")
     static let sectionHeaderText = Color(hex: "#787878")
     static let sectionTitleText = primaryText
     static let cardBackground = Color(hex: "#121212")
     static let subtleSurfaceBackground = surfaceFill
+    static let pairFieldBackground = Color(hex: "#111111")
+    static let successGreen = Color(hex: "#34C759")
     static let cardBorder = Color(hex: "#1F1F1F")
     static let cardBorderWidth: CGFloat = 1
     static let separator = Color.white.opacity(0.06)
@@ -30,12 +33,16 @@ enum AppTheme {
     static let sectionHeaderFont = AppFont.font(size: 11, weight: .semibold)
     static let sectionTitleFont = AppFont.font(size: 15, weight: .semibold)
     static let cardCornerRadius: CGFloat = 20
-    static let compactCardCornerRadius: CGFloat = 16
+    static let compactCardCornerRadius: CGFloat = 24
     static let screenHorizontalPadding: CGFloat = 16
     static let cardPadding: CGFloat = 20
     static let cardSpacing: CGFloat = 12
     /// Bottom scroll padding so content can pass under the floating tab bar (~56pt bar + 12pt offset + home indicator).
     static let floatingTabBarScrollClearance: CGFloat = 88
+
+    static var scrollBackdropHeight: CGFloat {
+        UIScreen.main.bounds.height
+    }
 
     static func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
@@ -92,6 +99,25 @@ extension Color {
 }
 
 extension View {
+    /// Ambient layer that scrolls with the screen content (not pinned to the viewport).
+    func ambientScrollBackdrop(
+        gradientStart: UnitPoint = .top,
+        gradientEnd: UnitPoint = .bottom
+    ) -> some View {
+        frame(maxWidth: .infinity, minHeight: AppTheme.scrollBackdropHeight, alignment: .top)
+            .background {
+                ZStack(alignment: .top) {
+                    AppTheme.background
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    AmbientBackground(startPoint: gradientStart, endPoint: gradientEnd)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: AppTheme.scrollBackdropHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+    }
+
   @ViewBuilder
   func appLargeNavigationTitle() -> some View {
     Group {

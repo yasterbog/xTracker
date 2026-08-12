@@ -10,6 +10,7 @@ struct CalendarView: View {
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var userService: UserService
+    @EnvironmentObject private var activityCatalog: ActivityCatalogStore
     @State private var displayedMonth = Calendar.current.startOfMonth(for: Date())
     @State private var monthPageIndex = 1
     @State private var monthRecenterTask: Task<Void, Never>?
@@ -19,7 +20,7 @@ struct CalendarView: View {
     @State private var eventToDelete: Event?
     @State private var showDeleteAlert = false
     @State private var swipingEventID: String?
-    @State private var selectedActivityFilters: Set<ActivityType> = []
+    @State private var selectedActivityFilters: Set<String> = []
     @State private var showNotifications = false
 
     private var hasActiveActivityFilter: Bool {
@@ -40,13 +41,17 @@ struct CalendarView: View {
         return calendar.startOfDay(for: Date())
     }
 
+    private var visibleStoreEvents: [Event] {
+        store.events
+    }
+
     private var selectedDayEvents: [Event] {
         let dayStart = calendar.startOfDay(for: selectedDate)
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
             return []
         }
 
-        var events = store.events
+        var events = visibleStoreEvents
             .filter { $0.date >= dayStart && $0.date < dayEnd }
             .filter(\.isVisibleOnCalendar)
             .sorted { $0.date > $1.date }
@@ -93,6 +98,7 @@ struct CalendarView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.bottom, AppTheme.floatingTabBarScrollClearance)
+
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .scrollIndicators(.hidden)
@@ -100,7 +106,7 @@ struct CalendarView: View {
             .appScreenBackground()
             .navigationTitle(currentMonthYearString)
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.hidden, for: .navigationBar)
+
             .toolbar {
                 if AppFeatures.eventPlannerEnabled {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -224,9 +230,9 @@ struct CalendarView: View {
                     HStack(spacing: 6) {
                         ForEach(monthlyActivityCounts, id: \.activity.id) { item in
                             FilterChip(
-                                isSelected: selectedActivityFilters.contains(item.activity)
+                                isSelected: selectedActivityFilters.contains(item.activity.id)
                             ) {
-                                toggleActivityFilter(item.activity)
+                                toggleActivityFilter(item.activity.id)
                             } label: {
                                 HStack(spacing: 6) {
                                     Text(item.activity.emoji)
@@ -235,7 +241,7 @@ struct CalendarView: View {
                                     Text("\(item.count)")
                                         .font(ChipMetrics.chipTitle)
                                         .foregroundColor(
-                                            selectedActivityFilters.contains(item.activity)
+                                            selectedActivityFilters.contains(item.activity.id)
                                                 ? AppTheme.background
                                                 : AppTheme.primaryText
                                         )
@@ -255,11 +261,25 @@ struct CalendarView: View {
         .id(displayedMonth)
     }
 
-    private var monthlyActivityCounts: [(activity: ActivityType, count: Int)] {
+    private var monthlyActivityCounts: [(activity: UserActivity, count: Int)] {
         let monthEvents = eventsInMonth(displayedMonth).filter { $0.status == .completed }
-        return ActivityType.allCases.compactMap { activity in
-            let count = monthEvents.filter { $0.activities.contains(activity) }.count
-            return count > 0 ? (activity, count) : nil
+        var counts: [String: Int] = [:]
+        for event in monthEvents {
+            for activityID in event.activities {
+                counts[activityID, default: 0] += 1
+            }
+        }
+
+        return counts.compactMap { activityID, count -> (UserActivity, Int)? in
+            count > 0 ? (activityCatalog.displayActivity(for: activityID), count) : nil
+        }
+        .sorted { lhs, rhs in
+            if lhs.count != rhs.count {
+                return lhs.count > rhs.count
+            }
+            let lhsOrder = activityCatalog.colorIndex(for: lhs.activity.id)
+            let rhsOrder = activityCatalog.colorIndex(for: rhs.activity.id)
+            return lhsOrder < rhsOrder
         }
     }
 
@@ -362,7 +382,7 @@ struct CalendarView: View {
         guard let interval = calendar.dateInterval(of: .month, for: month) else { return [:] }
 
         var eventsByDay: [Date: [Event]] = [:]
-        for event in store.events where event.isVisibleOnCalendar && interval.contains(event.date) {
+        for event in visibleStoreEvents where event.isVisibleOnCalendar && interval.contains(event.date) {
             let day = calendar.startOfDay(for: event.date)
             eventsByDay[day, default: []].append(event)
         }
@@ -439,7 +459,7 @@ struct CalendarView: View {
 
     private func eventsInMonth(_ month: Date) -> [Event] {
         guard let interval = calendar.dateInterval(of: .month, for: month) else { return [] }
-        return store.events.filter { interval.contains($0.date) }
+        return visibleStoreEvents.filter { interval.contains($0.date) }
     }
 
     private var hasPartnerPlannedNotifications: Bool {
@@ -484,11 +504,11 @@ struct CalendarView: View {
         calendar.startOfDay(for: day) > calendar.startOfDay(for: Date())
     }
 
-    private func toggleActivityFilter(_ activity: ActivityType) {
-        if selectedActivityFilters.contains(activity) {
-            selectedActivityFilters.remove(activity)
+    private func toggleActivityFilter(_ activityID: String) {
+        if selectedActivityFilters.contains(activityID) {
+            selectedActivityFilters.remove(activityID)
         } else {
-            selectedActivityFilters.insert(activity)
+            selectedActivityFilters.insert(activityID)
         }
     }
 
@@ -498,25 +518,17 @@ struct CalendarView: View {
     }
 
     private func creatorProfile(for event: Event) -> UserAvatarProfile {
-        if event.createdBy == authService.userID || authService.userID.isEmpty {
-            return UserAvatarProfile(
-                userID: authService.userID,
-                name: userService.ownName.isEmpty ? SettingsStore.defaultUserName : userService.ownName,
-                avatarBase64: userService.ownAvatarBase64,
-                avatarURL: userService.ownAvatarURL
-            )
-        }
-
-        if event.createdBy == authService.partnerID {
-            return UserAvatarProfile(
-                userID: authService.partnerID,
-                name: userService.partnerName.isEmpty ? "Партнёр" : userService.partnerName,
-                avatarBase64: userService.partnerAvatarBase64,
-                avatarURL: userService.partnerAvatarURL
-            )
-        }
-
-        return UserAvatarProfile(userID: event.createdBy, name: "Участник", avatarBase64: nil, avatarURL: nil)
+        EventProfileResolver.creatorProfile(
+            for: event,
+            currentUserID: authService.userID,
+            currentPartnerID: authService.partnerID,
+            ownName: userService.ownName,
+            ownAvatarBase64: userService.ownAvatarBase64,
+            ownAvatarURL: userService.ownAvatarURL,
+            partnerName: userService.partnerName,
+            partnerAvatarBase64: userService.partnerAvatarBase64,
+            partnerAvatarURL: userService.partnerAvatarURL
+        )
     }
 }
 
@@ -810,7 +822,7 @@ private struct CalendarEventRow: View {
                     }
                 }
 
-                EventActivitiesSummaryLine(activities: event.activities)
+                EventActivitiesSummaryLine(activityIDs: event.activities)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -822,116 +834,6 @@ private struct CalendarEventRow: View {
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-    }
-}
-
-private enum SwipeRevealMetrics {
-    static let trashVisibleOffset: CGFloat = 28
-}
-
-private struct SwipeInteractionObserver: UIViewRepresentable {
-    @Binding var isSwiping: Bool
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(isSwiping: $isSwiping)
-    }
-
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        context.coordinator.hostView = view
-        context.coordinator.startObservingIfNeeded()
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.isSwiping = $isSwiping
-        context.coordinator.hostView = uiView
-    }
-
-    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
-        coordinator.stopObserving()
-    }
-
-    final class Coordinator {
-        var isSwiping: Binding<Bool>
-        weak var hostView: UIView?
-        private var displayLink: CADisplayLink?
-
-        init(isSwiping: Binding<Bool>) {
-            self.isSwiping = isSwiping
-        }
-
-        func startObservingIfNeeded() {
-            guard displayLink == nil else { return }
-            let link = CADisplayLink(target: self, selector: #selector(tick))
-            link.add(to: .main, forMode: .common)
-            displayLink = link
-        }
-
-        func stopObserving() {
-            displayLink?.invalidate()
-            displayLink = nil
-        }
-
-        @objc private func tick() {
-            guard let hostView else { return }
-
-            let trashVisible = Self.isTrashVisible(hostView: hostView)
-            guard trashVisible != isSwiping.wrappedValue else { return }
-            isSwiping.wrappedValue = trashVisible
-        }
-
-        private static func isTrashVisible(hostView: UIView) -> Bool {
-            swipeOffset(from: hostView) < -SwipeRevealMetrics.trashVisibleOffset
-        }
-
-        private static func swipeOffset(from view: UIView) -> CGFloat {
-            var minOffset: CGFloat = 0
-            var current: UIView? = view
-
-            while let currentView = current {
-                minOffset = min(minOffset, horizontalOffset(of: currentView))
-                if currentView is UITableViewCell || currentView is UICollectionViewCell {
-                    break
-                }
-                current = currentView.superview
-            }
-
-            return minOffset
-        }
-
-        private static func horizontalOffset(of view: UIView) -> CGFloat {
-            if view.transform.tx != 0 {
-                return view.transform.tx
-            }
-            return view.frame.minX
-        }
-    }
-}
-
-private extension UIView {
-    var enclosingTableViewCell: UITableViewCell? {
-        var view: UIView? = self
-        while let current = view {
-            if let cell = current as? UITableViewCell {
-                return cell
-            }
-            view = current.superview
-        }
-        return nil
-    }
-
-    var enclosingCollectionViewCell: UICollectionViewCell? {
-        var view: UIView? = self
-        while let current = view {
-            if let cell = current as? UICollectionViewCell {
-                return cell
-            }
-            view = current.superview
-        }
-        return nil
     }
 }
 
@@ -996,4 +898,5 @@ private extension View {
         .environmentObject(EventStore())
         .environmentObject(AuthService())
         .environmentObject(UserService())
+        .environmentObject(ActivityCatalogStore())
 }

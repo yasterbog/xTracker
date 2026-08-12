@@ -7,6 +7,9 @@ import SwiftUI
 import UIKit
 
 struct ContentView: View {
+    @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var store: EventStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
 
     init() {
@@ -29,6 +32,16 @@ struct ContentView: View {
             FloatingTabBar(selectedTab: $selectedTab)
                 .offset(y: 12)
                 .allowsHitTesting(true)
+        }
+        .onChange(of: scenePhase) { phase in
+            guard phase == .active else { return }
+            Task {
+                let previousPairID = store.pairID
+                await authService.refreshPairStatus()
+                if !authService.pairID.isEmpty {
+                    store.setPairID(authService.pairID, force: previousPairID != authService.pairID)
+                }
+            }
         }
     }
 }
@@ -172,4 +185,5 @@ struct FloatingTabBar: View {
         .environmentObject(EventStore())
         .environmentObject(AuthService())
         .environmentObject(UserService())
+        .environmentObject(ActivityCatalogStore())
 }

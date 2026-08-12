@@ -10,10 +10,12 @@ import Foundation
 
 @MainActor
 final class AuthService: ObservableObject {
+    /// Personal invite code — always the user's own pair document ID.
+    @Published var pairCode: String = ""
+    /// Pair document used for shared events/profile sync.
+    @Published var pairID: String = ""
     @Published var userID: String = ""
     @Published var partnerID: String = ""
-    @Published var pairCode: String = ""
-    @Published var pairID: String = ""
     @Published var isConnecting = false
     @Published var connectionError: String?
     @Published var connectionSuccessMessage: String?
@@ -36,38 +38,43 @@ final class AuthService: ObservableObject {
     func bootstrap() async {
         do {
             try await signInAnonymously()
-            try await restoreSavedPairIfNeeded()
-            await refreshPairStatus()
+            reconcilePersistedPairState()
+            await ensurePersonalPairCodeFromFirestore()
 
-            if pairID.isEmpty && pairCode.isEmpty {
+            if pairCode.isEmpty {
                 _ = try await generatePairCode()
+            } else {
+                try await ensurePersonalPairDocumentExists()
             }
+
+            await refreshPairStatus()
         } catch {
-            connectionError = error.localizedDescription
+            connectionError = userFacingErrorMessage(for: error)
+            if pairCode.isEmpty {
+                try? await generatePairCode()
+            }
         }
     }
 
+    var resolvedPairCode: String {
+        pairCode
+    }
+
+    var syncPairID: String {
+        pairID.isEmpty ? pairCode : pairID
+    }
+
     func signInAnonymously() async throws {
-        let savedUserID = persistedUserID()
-
-        if let currentUser = Auth.auth().currentUser {
-            if let savedUserID, !savedUserID.isEmpty {
-                userID = savedUserID
-            } else {
-                userID = currentUser.uid
-                persistUserID(userID)
-            }
-            return
+        if Auth.auth().currentUser == nil {
+            _ = try await Auth.auth().signInAnonymously()
         }
 
-        let result = try await Auth.auth().signInAnonymously()
-
-        if let savedUserID, !savedUserID.isEmpty {
-            userID = savedUserID
-        } else {
-            userID = result.user.uid
-            persistUserID(userID)
+        guard let authUID = Auth.auth().currentUser?.uid, !authUID.isEmpty else {
+            throw AuthServiceError.authenticationFailed
         }
+
+        userID = authUID
+        persistUserID(authUID)
     }
 
     @discardableResult
@@ -77,7 +84,7 @@ final class AuthService: ObservableObject {
         let code = try await createUniquePairCode()
         let record = PairRecord(pairID: code, hostUserID: userID, guestUserID: nil)
 
-        try database.collection("pairs").document(code).setData(from: record)
+        try await database.collection("pairs").document(code).setData(from: record)
 
         pairCode = code
         pairID = code
@@ -87,7 +94,7 @@ final class AuthService: ObservableObject {
         return code
     }
 
-    func joinPair(code: String) async throws {
+    func joinPair(code: String, firestoreService: FirestoreService = FirestoreService()) async throws {
         isConnecting = true
         connectionError = nil
         connectionSuccessMessage = nil
@@ -95,10 +102,20 @@ final class AuthService: ObservableObject {
         defer { isConnecting = false }
 
         try await signInAnonymously()
+        await ensurePersonalPairCodeFromFirestore()
 
         let normalizedCode = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard normalizedCode.count == 6 else {
             throw AuthServiceError.invalidCode
+        }
+
+        let personalPairID = personalPairCode
+        guard !personalPairID.isEmpty else {
+            throw AuthServiceError.codeNotFound
+        }
+
+        if personalPairID == normalizedCode {
+            throw AuthServiceError.cannotJoinOwnPair
         }
 
         let document = database.collection("pairs").document(normalizedCode)
@@ -117,34 +134,97 @@ final class AuthService: ObservableObject {
         }
 
         record.guestUserID = userID
-        try document.setData(from: record)
+        if record.connectedAt == nil {
+            record.connectedAt = Date()
+        }
+        record.pairID = normalizedCode
+        try await document.setData(from: record)
 
-        pairCode = normalizedCode
-        pairID = record.pairID
+        // Keep personal code, switch shared sync to the host's pair.
+        pairID = normalizedCode
         partnerID = record.hostUserID
         persistPairState()
+
+        try await firestoreService.migrateEventsCreatedBy(
+            userID: userID,
+            from: personalPairID,
+            to: normalizedCode
+        )
 
         connectionSuccessMessage = "Партнёр успешно подключён!"
     }
 
-    func refreshPairStatus() async {
-        let activePairID = pairCode.isEmpty ? pairID : pairCode
-        guard !activePairID.isEmpty else { return }
+    func refreshPairStatus(firestoreService: FirestoreService = FirestoreService()) async {
+        guard !pairCode.isEmpty else { return }
 
         do {
-            let snapshot = try await database.collection("pairs").document(activePairID).getDocument()
-            guard let record = try? snapshot.data(as: PairRecord.self) else { return }
+            if try await applyHostConnectionIfNeeded() {
+                persistPairState()
+                return
+            }
 
-            applyPairRecord(record, documentID: snapshot.documentID)
-            partnerID = record.partnerUserID(excluding: userID) ?? ""
+            if try await applyGuestConnectionIfNeeded() {
+                persistPairState()
+                return
+            }
+
+            partnerID = ""
+            pairID = pairCode
             persistPairState()
         } catch {
-            connectionError = error.localizedDescription
+            connectionError = userFacingErrorMessage(for: error)
         }
     }
 
     var isPartnerConnected: Bool {
         !partnerID.isEmpty
+    }
+
+    func disconnectPartner(firestoreService: FirestoreService = FirestoreService()) async throws {
+        let personalPairID = personalPairCode
+        guard !personalPairID.isEmpty else { return }
+
+        try await signInAnonymously()
+
+        let sharedPairID = pairID.isEmpty ? personalPairID : pairID
+        if !partnerID.isEmpty {
+            try await firestoreService.deleteAllEvents(pairID: sharedPairID)
+        }
+
+        var clearedPaths = Set<String>()
+
+        let personalDoc = database.collection("pairs").document(personalPairID)
+        let personalSnapshot = try await personalDoc.getDocument()
+
+        if let record = try? personalSnapshot.data(as: PairRecord.self),
+           record.hostUserID == userID,
+           record.guestUserID != nil {
+            try await clearGuestConnection(on: personalDoc)
+            clearedPaths.insert(personalDoc.path)
+        }
+
+        if sharedPairID != personalPairID {
+            let syncDoc = database.collection("pairs").document(sharedPairID)
+            let syncSnapshot = try await syncDoc.getDocument()
+            if let record = try? syncSnapshot.data(as: PairRecord.self),
+               record.guestUserID == userID {
+                try await clearGuestConnection(on: syncDoc)
+                clearedPaths.insert(syncDoc.path)
+            }
+        }
+
+        let guestPairs = try await database
+            .collection("pairs")
+            .whereField("guestUserID", isEqualTo: userID)
+            .getDocuments()
+
+        for document in guestPairs.documents where !clearedPaths.contains(document.reference.path) {
+            try await clearGuestConnection(on: document.reference)
+        }
+
+        partnerID = ""
+        pairID = personalPairID
+        persistPairState()
     }
 
     func clearConnectionState() {
@@ -157,13 +237,162 @@ final class AuthService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Keys.pairCode)
     }
 
+    func deleteAllData(firestoreService: FirestoreService = FirestoreService()) async throws {
+        try await signInAnonymously()
+
+        let oldPairID = syncPairID
+        if !oldPairID.isEmpty {
+            do {
+                try await removeOwnDataFromPair(oldPairID: oldPairID, firestoreService: firestoreService)
+            } catch {
+                print("AuthService: cloud cleanup failed: \(error.localizedDescription)")
+            }
+        }
+
+        partnerID = ""
+
+        clearConnectionState()
+        _ = try await generatePairCode()
+
+        do {
+            try await resetProfileInCurrentPair()
+        } catch {
+            print("AuthService: profile reset failed: \(error.localizedDescription)")
+        }
+    }
+
+    func formatConnectionError(_ error: Error) -> String {
+        userFacingErrorMessage(for: error)
+    }
+
+    private var personalPairCode: String {
+        if !pairCode.isEmpty { return pairCode }
+        return pairID
+    }
+
+    private func applyHostConnectionIfNeeded() async throws -> Bool {
+        let snapshot = try await database.collection("pairs").document(pairCode).getDocument()
+        guard let record = try? snapshot.data(as: PairRecord.self), snapshot.exists else {
+            return false
+        }
+
+        guard record.hostUserID == userID, let guestID = record.guestUserID, !guestID.isEmpty else {
+            return false
+        }
+
+        partnerID = guestID
+        pairID = pairCode
+        return true
+    }
+
+    private func applyGuestConnectionIfNeeded() async throws -> Bool {
+        guard let guestPair = try await findPairRecord(field: "guestUserID", equals: userID) else {
+            return false
+        }
+
+        let record = guestPair.record
+        guard record.hostUserID != userID else { return false }
+
+        partnerID = record.hostUserID
+        pairID = guestPair.documentID
+        return true
+    }
+
+    private func removeOwnDataFromPair(
+        oldPairID: String,
+        firestoreService: FirestoreService
+    ) async throws {
+        let document = database.collection("pairs").document(oldPairID)
+        let snapshot = try await document.getDocument()
+
+        try await firestoreService.deleteEventsCreatedBy(userID: userID, pairID: oldPairID)
+        try await firestoreService.deleteUserProfile(pairID: oldPairID, userID: userID)
+
+        guard snapshot.exists, var record = try? snapshot.data(as: PairRecord.self) else {
+            return
+        }
+
+        let partnerUserID = record.partnerUserID(excluding: userID)
+        let isHost = record.hostUserID == userID
+        let isGuest = record.guestUserID == userID
+
+        if isHost, let partnerUserID {
+            record.hostUserID = partnerUserID
+            record.guestUserID = nil
+            record.connectedAt = nil
+            try await document.setData(from: record)
+        } else if isGuest {
+            try await clearGuestConnection(on: document)
+        } else if isHost {
+            try await firestoreService.deletePairDocument(pairID: oldPairID)
+        }
+    }
+
+    private func clearGuestConnection(on reference: DocumentReference) async throws {
+        try await reference.setData([
+            "guestUserID": NSNull(),
+            "connectedAt": NSNull(),
+        ], merge: true)
+    }
+
+    private func reconcilePersistedPairState() {
+        if pairID.isEmpty && !pairCode.isEmpty {
+            pairID = pairCode
+        }
+    }
+
+    private func ensurePersonalPairCodeFromFirestore() async {
+        guard !userID.isEmpty else { return }
+
+        do {
+            if let personal = try await findPairRecord(field: "hostUserID", equals: userID) {
+                pairCode = personal.documentID
+                persistPairState()
+            }
+        } catch {
+            print("AuthService: failed to restore personal pair code: \(error.localizedDescription)")
+        }
+    }
+
+    private func ensurePersonalPairDocumentExists() async throws {
+        let snapshot = try await database.collection("pairs").document(pairCode).getDocument()
+        guard snapshot.exists else {
+            _ = try await generatePairCode()
+            return
+        }
+
+        guard let record = try? snapshot.data(as: PairRecord.self), record.hostUserID == userID else {
+            _ = try await generatePairCode()
+            return
+        }
+    }
+
+    private func resetProfileInCurrentPair() async throws {
+        let targetPairID = syncPairID
+        guard !targetPairID.isEmpty, !userID.isEmpty else { return }
+
+        try await database
+            .collection("pairs")
+            .document(targetPairID)
+            .collection("users")
+            .document(userID)
+            .setData([
+                "name": SettingsStore.defaultUserName,
+                "updatedAt": FieldValue.serverTimestamp(),
+            ])
+    }
+
     private func loadFromUserDefaults() {
         userID = persistedUserID() ?? ""
         partnerID = UserDefaults.standard.string(forKey: Keys.partnerID) ?? ""
+        pairCode = UserDefaults.standard.string(forKey: Keys.pairCode) ?? ""
         pairID = UserDefaults.standard.string(forKey: Keys.savedPairID)
             ?? UserDefaults.standard.string(forKey: Keys.legacyPairID)
             ?? ""
-        pairCode = UserDefaults.standard.string(forKey: Keys.pairCode) ?? ""
+
+        if pairCode.isEmpty, !pairID.isEmpty {
+            pairCode = pairID
+        }
 
         if userID.isEmpty, let currentUser = Auth.auth().currentUser {
             userID = currentUser.uid
@@ -173,9 +402,9 @@ final class AuthService: ObservableObject {
 
     private func persistPairState() {
         UserDefaults.standard.set(partnerID, forKey: Keys.partnerID)
+        UserDefaults.standard.set(pairCode, forKey: Keys.pairCode)
         UserDefaults.standard.set(pairID, forKey: Keys.savedPairID)
         UserDefaults.standard.set(pairID, forKey: Keys.legacyPairID)
-        UserDefaults.standard.set(pairCode, forKey: Keys.pairCode)
     }
 
     private func persistUserID(_ userID: String) {
@@ -188,25 +417,8 @@ final class AuthService: ObservableObject {
             ?? UserDefaults.standard.string(forKey: Keys.legacyUserID)
     }
 
-    private func restoreSavedPairIfNeeded() async throws {
-        if !pairID.isEmpty || !pairCode.isEmpty {
-            return
-        }
-
-        guard let savedUserID = persistedUserID(), !savedUserID.isEmpty else {
-            return
-        }
-
-        if let record = try await findPairRecord(field: "hostUserID", equals: savedUserID) {
-            applyPairRecord(record.record, documentID: record.documentID)
-            persistPairState()
-            return
-        }
-
-        if let record = try await findPairRecord(field: "guestUserID", equals: savedUserID) {
-            applyPairRecord(record.record, documentID: record.documentID)
-            persistPairState()
-        }
+    private func restorePersonalPairIfNeeded() async throws {
+        await ensurePersonalPairCodeFromFirestore()
     }
 
     private func findPairRecord(field: String, equals userID: String) async throws -> (record: PairRecord, documentID: String)? {
@@ -224,25 +436,34 @@ final class AuthService: ObservableObject {
         return (record, document.documentID)
     }
 
-    private func applyPairRecord(_ record: PairRecord, documentID: String) {
-        let restoredPairID = record.pairID.isEmpty ? documentID : record.pairID
-        pairID = restoredPairID
-        pairCode = restoredPairID
-        partnerID = record.partnerUserID(excluding: userID) ?? ""
-    }
-
     private func createUniquePairCode() async throws -> String {
         let characters = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
 
-        for _ in 0..<12 {
+        for _ in 0..<24 {
             let code = String((0..<6).map { _ in characters.randomElement()! })
-            let snapshot = try await database.collection("pairs").document(code).getDocument()
-            if !snapshot.exists {
-                return code
+            do {
+                let snapshot = try await database.collection("pairs").document(code).getDocument()
+                if !snapshot.exists {
+                    return code
+                }
+            } catch {
+                continue
             }
         }
 
         throw AuthServiceError.codeGenerationFailed
+    }
+
+    private func userFacingErrorMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == FirestoreErrorDomain,
+           nsError.code == FirestoreErrorCode.permissionDenied.rawValue {
+            return "Нет доступа к серверу. Обновите правила Firestore и попробуйте снова."
+        }
+        if let authError = error as? AuthServiceError {
+            return authError.localizedDescription
+        }
+        return error.localizedDescription
     }
 }
 
@@ -250,6 +471,7 @@ private struct PairRecord: Codable {
     var pairID: String
     var hostUserID: String
     var guestUserID: String?
+    var connectedAt: Date?
 
     func partnerUserID(excluding userID: String) -> String? {
         if hostUserID == userID {
@@ -271,6 +493,7 @@ enum AuthServiceError: LocalizedError {
     case cannotJoinOwnPair
     case pairAlreadyFull
     case codeGenerationFailed
+    case authenticationFailed
 
     var errorDescription: String? {
         switch self {
@@ -284,6 +507,8 @@ enum AuthServiceError: LocalizedError {
             return "Эта пара уже подключена к другому пользователю."
         case .codeGenerationFailed:
             return "Не удалось создать код. Попробуйте снова."
+        case .authenticationFailed:
+            return "Не удалось войти в аккаунт. Попробуйте снова."
         }
     }
 }

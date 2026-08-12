@@ -14,6 +14,7 @@ struct xTrackerApp: App {
     @StateObject private var authService = AuthService()
     @StateObject private var userService = UserService()
     @StateObject private var store = EventStore()
+    @StateObject private var activityCatalog = ActivityCatalogStore()
 
     init() {
         AppFont.registerBundledFonts()
@@ -43,11 +44,22 @@ struct xTrackerApp: App {
                 .environmentObject(store)
                 .environmentObject(authService)
                 .environmentObject(userService)
+                .environmentObject(activityCatalog)
                 .task {
                     if AppFeatures.eventPlannerEnabled {
                         await NotificationService.shared.requestAuthorizationIfNeeded()
                     }
                     await authService.bootstrap()
+                    if authService.isPartnerConnected,
+                       authService.pairID != authService.pairCode {
+                        try? await userService.ensureProfileOnSyncPair(
+                            from: authService.pairCode,
+                            to: authService.pairID,
+                            userID: authService.userID,
+                            fallbackName: SettingsStore.userName,
+                            avatarData: SettingsStore.avatarImage?.jpegData(compressionQuality: 0.85)
+                        )
+                    }
                     if !authService.pairID.isEmpty {
                         store.setPairID(authService.pairID)
                     }
@@ -56,17 +68,26 @@ struct xTrackerApp: App {
                         userID: authService.userID,
                         partnerID: authService.partnerID
                     )
+                    if authService.isPartnerConnected {
+                        await userService.prefetchPartnerProfile(
+                            partnerID: authService.partnerID,
+                            syncPairID: authService.pairID
+                        )
+                    }
                     if AppFeatures.eventPlannerEnabled {
                         NotificationService.shared.startListening(forUserID: authService.userID)
                     }
                 }
                 .onChange(of: authService.pairID) { newPairID in
-                    store.setPairID(newPairID)
-                    userService.startListeners(
-                        pairID: authService.pairID,
-                        userID: authService.userID,
-                        partnerID: authService.partnerID
-                    )
+                    Task {
+                        let previousPairID = store.pairID
+                        store.setPairID(newPairID, force: previousPairID != newPairID)
+                        userService.startListeners(
+                            pairID: authService.pairID,
+                            userID: authService.userID,
+                            partnerID: authService.partnerID
+                        )
+                    }
                 }
                 .onChange(of: authService.userID) { newUserID in
                     userService.startListeners(
